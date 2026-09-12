@@ -28,6 +28,28 @@ attributed to their parent session.
 Token usage is deduplicated by API message id (streamed messages repeat the
 usage block across multiple JSONL records).
 
+## Direct graph links
+
+Open Overview with the past week's daily graph:
+
+```text
+https://ai-session-analysis.etdofresh.com/?granularity=day&range=1w#/overview
+```
+
+Optional query parameters override this browser's saved Overview preferences:
+
+- `granularity`: `day` or `hour`.
+- `range`: daily `1w`, `1m`, `3m`, `6m`, `1y`, `all`; hourly `6h`,
+  `12h`, `24h`, `48h`, `120h`, `168h`.
+- `modelView`: `simple` or `broken-out`.
+
+Missing or invalid values fall back to saved preferences, then defaults.
+Overrides apply when Overview opens, including after unlocking the site, and do
+not overwrite the corresponding saved preferences. Controls still work during
+that visit; reloading the link reapplies its settings. Reset view clears the
+Overview query parameters as well as saved settings. `#/overview` selects the
+Overview tab, with the daily/hourly trend as its first graph.
+
 ## Cost estimates
 
 Claude Code transcripts record token usage but **not** billed cost. The app

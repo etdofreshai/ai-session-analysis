@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip,
   PieChart, Pie, Cell, CartesianGrid,
@@ -10,6 +10,7 @@ import {
 } from "../aggregate";
 import type { PricingTable } from "../pricing";
 import { fmtTokens, fmtUsd } from "../pricing";
+import { useViewSetting } from "../useViewSetting";
 
 type ModelViewMode = "simple" | "broken-out";
 
@@ -20,27 +21,23 @@ export default function Overview({
   pricing: PricingTable;
 }) {
   // Time granularity for the trend chart, plus a remembered range per mode.
-  const [gran, setGran] = useState<Granularity>(() =>
-    localStorage.getItem("overviewGranularity") === "hour" ? "hour" : "day"
+  const [gran, setGran] = useViewSetting<Granularity>(
+    "overviewGranularity", "granularity", ["day", "hour"], "day"
   );
-  const [dayRange, setDayRange] = useState<RangeKey>(() => {
-    const saved = localStorage.getItem("overviewDayRange") as RangeKey | null;
-    return saved && RANGES.some((r) => r.key === saved) ? saved : "all";
-  });
-  const [hourRange, setHourRange] = useState<HourRangeKey>(() => {
-    const saved = localStorage.getItem("overviewHourRange") as HourRangeKey | null;
-    return saved && HOUR_RANGES.some((r) => r.key === saved) ? saved : "24h";
-  });
-  const [modelView, setModelView] = useState<ModelViewMode>(() =>
-    localStorage.getItem("overviewModelView") === "simple" ? "simple" : "broken-out"
+  const [dayRange, setDayRange] = useViewSetting<RangeKey>(
+    "overviewDayRange", "range", RANGES.map((r) => r.key), "all"
   );
-
-  useEffect(() => { localStorage.setItem("overviewGranularity", gran); }, [gran]);
-  useEffect(() => { localStorage.setItem("overviewDayRange", dayRange); }, [dayRange]);
-  useEffect(() => { localStorage.setItem("overviewHourRange", hourRange); }, [hourRange]);
-  useEffect(() => { localStorage.setItem("overviewModelView", modelView); }, [modelView]);
+  const [hourRange, setHourRange] = useViewSetting<HourRangeKey>(
+    "overviewHourRange", "range", HOUR_RANGES.map((r) => r.key), "24h"
+  );
+  const [modelView, setModelView] = useViewSetting<ModelViewMode>(
+    "overviewModelView", "modelView", ["simple", "broken-out"], "broken-out"
+  );
 
   const resetView = () => {
+    const url = new URL(window.location.href);
+    for (const key of ["granularity", "range", "modelView"]) url.searchParams.delete(key);
+    window.history.replaceState(window.history.state, "", url);
     localStorage.removeItem("overviewGranularity");
     localStorage.removeItem("overviewDayRange");
     localStorage.removeItem("overviewHourRange");
