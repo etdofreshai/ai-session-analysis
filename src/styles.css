@@ -29,7 +29,7 @@ body {
 .topbar .sub, .modal-header .sub {
   font-size: 12px; color: var(--muted); font-weight: normal; margin-left: 10px;
 }
-.topbar nav { display: flex; gap: 6px; align-items: center; }
+.topbar nav { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 
 button {
   background: var(--panel); color: var(--text); border: 1px solid var(--border);
@@ -86,6 +86,7 @@ input, select {
 
 table { border-collapse: collapse; width: 100%; }
 table.mini { font-size: 13px; margin-top: 8px; }
+table.model-usage { min-width: 580px; }
 table.mini th, table.mini td { padding: 5px 10px; text-align: left; border-bottom: 1px solid var(--border); }
 table.mini th { color: var(--muted); font-weight: 500; font-size: 11px; text-transform: uppercase; }
 
@@ -162,6 +163,7 @@ table.sessions tbody tr:hover { background: #20242c; }
 .chip-effort { background: #2a2535; color: #b39ddb; }
 .chip-src { text-transform: uppercase; font-size: 9.5px; letter-spacing: 0.04em; }
 .chip-claude { background: #2a221c; color: #e8a16a; }
+.chip-swarm { background: #18372e; color: #80d5aa; }
 .chip-codex { background: #1c2a25; color: #5ee8b0; }
 .chip-pi { background: #2b2336; color: #c7a7ff; }
 .chip-opencode { background: #2d2a1d; color: #ffd166; }

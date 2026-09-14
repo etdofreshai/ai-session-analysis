@@ -56,7 +56,7 @@ export interface SessionCounts {
   sidechain: number;
 }
 
-export type SessionSource = "claude" | "codex" | "pi" | "opencode";
+export type SessionSource = "claude" | "codex" | "pi" | "opencode" | "swarm";
 
 export interface SessionStats {
   id: string;

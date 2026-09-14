@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { scanSwarmAll, swarmSessionDetail } from "./swarm-scanner";
 import path from "node:path";
 import os from "node:os";
 import { scanCodexAll, codexSessionDetail } from "./codex-scanner";
@@ -404,6 +405,7 @@ export function scanAll(): StatsResponse {
     } catch {
       // opencode db missing, changing during sync, or unreadable — skip
     }
+    projects.push(...scanSwarmAll(host.swarmSnapshot, host.label));
   }
   return {
     generatedAt: new Date().toISOString(),
@@ -512,6 +514,7 @@ export function sessionDetail(
   if (source === "codex") return codexSessionDetail(sessionId, host.codexDir, host.label);
   if (source === "pi") return piSessionDetail(sessionId, host.piDir, host.label);
   if (source === "opencode") return opencodeSessionDetail(sessionId, host.opencodeDb, host.label);
+  if (source === "swarm") return swarmSessionDetail(sessionId, host.swarmSnapshot, host.label);
   const root = host.projectsDir;
   const projDir = path.join(root, projName);
   const fp = path.join(projDir, sessionId + ".jsonl");

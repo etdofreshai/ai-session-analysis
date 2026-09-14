@@ -93,12 +93,46 @@ existing `~/.claude-remotes` archive is reused automatically rather than
 abandoned. Set `AI_REMOTE_CACHE` explicitly to select another archive.
 `CLAUDE_PROJECTS_DIR` still names the Claude Code source, not the dashboard.
 
-The dashboard scans the four stores listed above, not the swarm-console
-`provider_costs` ledger. Direct API swarm usage is therefore not included;
-Codex-backed swarm sessions are included once their rollouts are in a
-configured Codex source directory. Remote Codex archived sessions are not
+Direct API swarm usage can be included with the optional read-only ledger
+source below. Codex-backed swarm sessions are included once their rollouts
+are in a configured Codex source directory. Remote Codex archived sessions are not
 pulled independently; the append-only cache retains only files previously
 synced from the active sessions directory.
+
+### Swarm direct API usage
+
+Set `AI_SWARM_DATABASES` to a JSON object mapping configured host labels to
+their swarm-console database paths, for example:
+
+```json
+{"etzgt103":"/home/etgarcia/.repos/swarm-console/.data/swarm.sqlite"}
+```
+
+The source host needs Node.js with `node:sqlite` (Node 22.13+ or 24+) on
+its noninteractive SSH PATH. Each normal sync executes the dependency-free
+`server/export-swarm.cjs` over SSH, opens SQLite read-only in a snapshot
+transaction, and returns compact hourly usage buckets. No source files,
+databases, sessions, or services are modified. Transcripts and raw attribution
+payloads never leave the source host.
+
+Usage-bearing records are deduplicated by model and generation ID, with
+request ID plus attempt as the fallback. Distinct billed retry generations
+remain separate. Records without usage do not count as model calls or errors.
+The export reads current rows on every sync so later usage updates are picked
+up without append-only double counting.
+
+The `swarm` source groups direct requests by board and owner/agent. These rows
+are usage groups, not Codex threads; prompt/message/tool counts are not inferred.
+Daily buckets use Central Time, and all retained hourly history is available.
+The existing pricing table estimates costs from normalized token counts; the
+ledger's own billed/estimated dollar values are not mixed into those estimates.
+Codex-backed swarm sessions remain under `codex`, not duplicated under `swarm`.
+
+`<host> / swarm` has independent sync status. Failed or invalid exports retain
+the previous complete snapshot and show an error. The snapshot is kept in the
+existing durable archive volume, with the original source database path
+recorded for provenance. It mirrors the ledger rather than preserving rows
+deleted from that ledger.
 
 Set `DASHBOARD_PASSWORD` and a high-entropy `DASHBOARD_SESSION_SECRET` when the
 service is routed through a public hostname. Unauthenticated browser requests

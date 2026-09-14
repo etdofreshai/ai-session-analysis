@@ -138,11 +138,15 @@ export default function SessionDetailView({
                   detail.session.subagents.reduce((a, s) => a + modelsCost(s.models, pricing), 0)
                 )} />
                 <MiniCard label="Duration" value={fmtDuration(detail.session.durationMs)} />
+                {detail.session.source === "swarm" ? (
+                  <MiniCard label="Metered requests" value={String(detail.session.counts.records)} />
+                ) : <>
                 <MiniCard label="Prompts" value={String(detail.session.counts.userPrompts)} />
                 <MiniCard label="Assistant msgs" value={String(detail.session.counts.assistantMsgs)} />
                 <MiniCard label="Tool calls" value={String(detail.session.counts.toolUses)} />
                 <MiniCard label="Subagents" value={String(detail.session.subagents.length)} />
                 <MiniCard label="API errors" value={String(detail.session.counts.apiErrors)} />
+                </>}
               </div>
 
               <h3>
@@ -153,7 +157,8 @@ export default function SessionDetailView({
                   </span>
                 )}
               </h3>
-              <table className="mini">
+              <div className="table-scroll">
+              <table className="mini model-usage">
                 <thead>
                   <tr>
                     <th>Model</th><th>Calls</th><th>Input</th><th>Output</th>
@@ -174,6 +179,7 @@ export default function SessionDetailView({
                   ))}
                 </tbody>
               </table>
+              </div>
 
               {detail.session.subagents.length > 0 && (
                 <>
@@ -199,6 +205,7 @@ export default function SessionDetailView({
                 </>
               )}
 
+              {detail.session.source !== "swarm" && <>
               <h3>
                 Timeline ({detail.timeline.length} events)
                 <label className="autorefresh">
@@ -233,6 +240,7 @@ export default function SessionDetailView({
                     </div>
                   ))}
               </div>
+              </>}
             </div>
           )}
         </div>

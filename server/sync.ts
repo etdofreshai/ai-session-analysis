@@ -4,6 +4,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import type { HostSyncStatus } from "../src/types";
 import { dashboardEnv, hosts, type HostSpec } from "./hosts";
+import { parseSwarmSnapshot } from "./swarm-scanner";
 
 const execFileP = promisify(execFile);
 
@@ -27,6 +28,41 @@ if (process.env.SESSION_SSH_KNOWN_HOSTS) {
 const status = new Map<string, HostSyncStatus>();
 let lastSyncStart = 0;
 let inFlight: Promise<void> | null = null;
+
+function shellQuote(value: string): string {
+  return "'" + value.replace(/'/g, "'\\''") + "'";
+}
+
+async function syncSwarmHost(h: HostSpec): Promise<void> {
+  if (!h.swarmDatabase || !h.swarmSnapshot) return;
+  const t0 = Date.now();
+  const id = `${h.id}:swarm`;
+  try {
+    const script = fs.readFileSync(path.resolve("server/export-swarm.cjs"), "utf8");
+    const args = ["--input-type=commonjs", "-e", script, "--", "--swarm-export", h.swarmDatabase];
+    const command = h.ssh ? "ssh" : process.execPath;
+    const commandArgs = h.ssh
+      ? [...SSH_OPTS, h.ssh, ["node", ...args].map(shellQuote).join(" ")]
+      : args;
+    const { stdout } = await execFileP(command, commandArgs, {
+      timeout: 120_000, maxBuffer: 32 * 1024 * 1024,
+    });
+    const snapshot = parseSwarmSnapshot(stdout);
+    if (snapshot.diagnostics.invalidRows)
+      throw new Error(`Swarm ledger has ${snapshot.diagnostics.invalidRows} invalid usage rows`);
+    // Only a complete, validated export replaces the previous snapshot.
+    fs.mkdirSync(path.dirname(h.swarmSnapshot), { recursive: true });
+    const temp = h.swarmSnapshot + ".tmp";
+    fs.writeFileSync(temp, stdout, { mode: 0o600 });
+    fs.renameSync(temp, h.swarmSnapshot);
+    status.set(id, { id, label: `${h.label} / swarm`, ssh: h.ssh, ok: true,
+      error: null, lastSyncMs: Date.now(), durationMs: Date.now() - t0 });
+  } catch (e: any) {
+    status.set(id, { id, label: `${h.label} / swarm`, ssh: h.ssh, ok: false,
+      error: String(e?.stderr || e?.message || e).trim().slice(0, 500),
+      lastSyncMs: status.get(id)?.lastSyncMs ?? null, durationMs: Date.now() - t0 });
+  }
+}
 
 async function rsyncPull(
   h: HostSpec,
@@ -110,7 +146,10 @@ async function doSync(): Promise<void> {
   const remotes = hosts().filter(
     (h) => h.remoteProjects || h.remoteCodex || h.remotePi || h.remoteOpenCode
   );
-  await Promise.all(remotes.map((h) => syncHost(h)));
+  await Promise.all([
+    ...remotes.map((h) => syncHost(h)),
+    ...hosts().filter(h => h.swarmDatabase).map(h => syncSwarmHost(h)),
+  ]);
 }
 
 /**
@@ -132,7 +171,7 @@ export function ensureSynced(): HostSyncStatus[] {
 }
 
 export function statusList(): HostSyncStatus[] {
-  return hosts().map((h) => {
+  const hostStatuses = hosts().map((h) => {
     // Hosts with no rsync source (pure scan-in-place) have no sync status; they
     // always count as ok and are listed only so they appear in the dashboard's
     // host bar.
@@ -159,4 +198,10 @@ export function statusList(): HostSyncStatus[] {
       }
     );
   });
+  return [...hostStatuses, ...hosts().filter(h => h.swarmDatabase).map(h =>
+    status.get(`${h.id}:swarm`) ?? {
+      id: `${h.id}:swarm`, label: `${h.label} / swarm`, ssh: h.ssh,
+      ok: false, error: "not yet synced", lastSyncMs: null, durationMs: null,
+    }
+  )];
 }

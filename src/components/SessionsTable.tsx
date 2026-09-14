@@ -225,6 +225,7 @@ export default function SessionsTable({
           <option value="codex">Codex</option>
           <option value="pi">Pi</option>
           <option value="opencode">OpenCode</option>
+          <option value="swarm">Swarm (direct API)</option>
         </select>
         {hostsList.length > 1 && (
           <select value={hostFilter} onChange={(e) => setHostFilter(e.target.value)}>

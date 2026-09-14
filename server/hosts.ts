@@ -24,6 +24,10 @@ export interface HostSpec {
   piDir: string;
   /** Local path to the OpenCode SQLite database to scan. */
   opencodeDb: string;
+  /** Explicitly configured read-only swarm ledger on the source host. */
+  swarmDatabase?: string;
+  /** Compact usage snapshot staged in the dashboard's durable archive. */
+  swarmSnapshot?: string;
   /**
    * rsync SOURCE for Claude projects. For SSH remotes this is an SSH-side,
    * home-relative path (e.g. ".claude/projects/"); for the local host it is an
@@ -94,6 +98,10 @@ let cached: HostSpec[] | null = null;
 export function hosts(): HostSpec[] {
   if (cached) return cached;
   const list: HostSpec[] = [];
+  const swarmDatabases = JSON.parse(process.env.AI_SWARM_DATABASES ?? "{}");
+  if (!swarmDatabases || Array.isArray(swarmDatabases) || typeof swarmDatabases !== "object" ||
+      !Object.values(swarmDatabases).every(v => typeof v === "string" && v.length > 0))
+    throw new Error("AI_SWARM_DATABASES must map host labels to database paths");
 
   const localLabel = dashboardEnv("LOCAL_LABEL") ?? "etzmacminim2";
   const localStage = path.join(remoteStageRoot(), localLabel);
@@ -148,6 +156,12 @@ export function hosts(): HostSpec[] {
     });
   }
 
+  for (const [label, database] of Object.entries(swarmDatabases)) {
+    const host = list.find(h => h.label === label || h.id === label);
+    if (!host) throw new Error(`Unknown swarm source host: ${label}`);
+    host.swarmDatabase = database as string;
+    host.swarmSnapshot = path.join(remoteStageRoot(), host.label, "swarm-usage.json");
+  }
   cached = list;
   return list;
 }
