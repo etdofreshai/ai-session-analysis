@@ -11,6 +11,17 @@ export interface ModelPricing {
 
 export type PricingTable = Record<string, ModelPricing>;
 
+// USD / 1M tokens, verified 2026-09-13:
+// https://docs.z.ai/guides/overview/pricing
+const GLM_FLASH_PRICING: ModelPricing = {
+  input: 0.15, output: 0.50, cacheRead: 0.03, cacheWrite5m: 0, cacheWrite1h: 0,
+};
+// https://dev.meta.ai/docs/pricing-rate-limits#contributor-tier
+// Contributor API-equivalent value, including the temporary OpenCode free route.
+const MUSE_CONTRIBUTOR_PRICING: ModelPricing = {
+  input: 0.10, output: 0.20, cacheRead: 0.002, cacheWrite5m: 0, cacheWrite1h: 0,
+};
+
 /**
  * Defaults are editable in the Pricing tab (persisted to localStorage).
  * Matching is by longest prefix, so "claude-opus-4" covers 4-6/4-7/4-8
@@ -27,6 +38,12 @@ export const DEFAULT_PRICING: PricingTable = {
   "claude-sonnet-4": { input: 3, output: 15, cacheRead: 0.3, cacheWrite5m: 3.75, cacheWrite1h: 6 },
   "claude-haiku-4": { input: 1, output: 5, cacheRead: 0.1, cacheWrite5m: 1.25, cacheWrite1h: 2 },
   "glm-": { input: 0.6, output: 2.2, cacheRead: 0.11, cacheWrite5m: 0, cacheWrite1h: 0 },
+  "glm-5.3-flash": { ...GLM_FLASH_PRICING },
+  "zai-coding/glm-5.3-flash": { ...GLM_FLASH_PRICING },
+  "opencode/glm-5.3-flash": { ...GLM_FLASH_PRICING },
+  "muse-spark-1.3-contributor": { ...MUSE_CONTRIBUTOR_PRICING },
+  "opencode/muse-spark-1.3-contributor": { ...MUSE_CONTRIBUTOR_PRICING },
+  "opencode-free-responses/muse-spark-1.3-contributor": { ...MUSE_CONTRIBUTOR_PRICING },
   // Official OpenAI Codex / ChatGPT Work rates (USD / 1M tokens).
   // Astra: 2026-09 rate card. Codex does not charge for cache writes.
   // Keep exact model rows above the generic gpt- legacy fallback.
