@@ -3,14 +3,14 @@ import fs from "node:fs";
 import path from "node:path";
 import { promisify } from "node:util";
 import type { HostSyncStatus } from "../src/types";
-import { hosts, type HostSpec } from "./hosts";
+import { dashboardEnv, hosts, type HostSpec } from "./hosts";
 
 const execFileP = promisify(execFile);
 
 // A scan triggers a fresh rsync only if the last one finished more than
 // TTL_MS ago; rapid refreshes within that window read the already-staged
 // copy instead of paying SSH latency again.
-const TTL_MS = Number(process.env.CLAUDE_SYNC_TTL_MS ?? 90_000);
+const TTL_MS = Number(dashboardEnv("SYNC_TTL_MS") ?? 90_000);
 
 const SSH_OPTS = [
   "-o", "BatchMode=yes",

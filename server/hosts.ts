@@ -1,5 +1,12 @@
 import path from "node:path";
 import os from "node:os";
+import fs from "node:fs";
+
+// Keep existing installations readable while moving dashboard-wide settings
+// to provider-neutral names. CLAUDE_PROJECTS_DIR remains provider-specific.
+export function dashboardEnv(name: string): string | undefined {
+  return process.env[`AI_${name}`] ?? process.env[`CLAUDE_${name}`];
+}
 
 // A "host" is a machine whose AI-agent transcripts we scan. The local
 // machine is always included; remote machines are pulled into a staging dir
@@ -41,10 +48,11 @@ export interface HostSpec {
 
 /** Where remote transcripts are staged locally before scanning. */
 export function remoteStageRoot(): string {
-  return (
-    process.env.CLAUDE_REMOTE_CACHE ??
-    path.join(os.homedir(), ".claude-remotes")
-  );
+  const configured = dashboardEnv("REMOTE_CACHE");
+  if (configured !== undefined) return configured;
+  const legacy = path.join(os.homedir(), ".claude-remotes");
+  // Never silently abandon an existing durable archive after an upgrade.
+  return fs.existsSync(legacy) ? legacy : path.join(os.homedir(), ".ai-remotes");
 }
 
 interface RemoteDef {
@@ -68,7 +76,7 @@ const BUILTIN_REMOTES: RemoteDef[] = [
 // Optional env override: comma-separated "id=user@host" pairs (unix defaults).
 // When set, it replaces the built-in remote list.
 function envRemotes(): RemoteDef[] | null {
-  const spec = process.env.CLAUDE_REMOTE_HOSTS;
+  const spec = dashboardEnv("REMOTE_HOSTS");
   if (!spec) return null;
   const out: RemoteDef[] = [];
   for (const part of spec.split(",").map((s) => s.trim()).filter(Boolean)) {
@@ -87,12 +95,12 @@ export function hosts(): HostSpec[] {
   if (cached) return cached;
   const list: HostSpec[] = [];
 
-  const localLabel = process.env.CLAUDE_LOCAL_LABEL ?? "etzmacminim2";
+  const localLabel = dashboardEnv("LOCAL_LABEL") ?? "etzmacminim2";
   const localStage = path.join(remoteStageRoot(), localLabel);
   // A containerized deployment has no meaningful local archive. In that mode
-  // every source host is declared through CLAUDE_REMOTE_HOSTS and staged in the
+  // every source host is declared through AI_REMOTE_HOSTS and staged in the
   // persistent cache volume.
-  if (process.env.CLAUDE_DISABLE_LOCAL !== "1") list.push({
+  if (dashboardEnv("DISABLE_LOCAL") !== "1") list.push({
     id: "local",
     label: localLabel,
     ssh: null,

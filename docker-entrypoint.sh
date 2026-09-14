@@ -1,6 +1,10 @@
 #!/bin/sh
 set -eu
 
+# Apply container defaults after honoring existing deployment overrides.
+export AI_REMOTE_CACHE="${AI_REMOTE_CACHE-${CLAUDE_REMOTE_CACHE-/data/archive}}"
+export AI_DISABLE_LOCAL="${AI_DISABLE_LOCAL-${CLAUDE_DISABLE_LOCAL-1}}"
+
 mkdir -p /data/archive /data/.ssh
 chmod 700 /data/.ssh
 

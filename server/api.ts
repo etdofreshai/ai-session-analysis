@@ -79,7 +79,7 @@ const form=document.getElementById('unlock'),button=form.querySelector('button')
 
 export function sessionApiPlugin(): Plugin {
   return {
-    name: "claude-session-api",
+    name: "ai-session-api",
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         const url = new URL(req.url ?? "/", "http://localhost");

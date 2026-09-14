@@ -1,4 +1,4 @@
-# Migrating the claude-session-analysis Dashboard to a Fresh Host
+# Migrating the ai-session-analysis Dashboard to a Fresh Host
 
 This runbook moves the dashboard to any machine that already has **node + npm**,
 serves it on `0.0.0.0` (LAN-reachable), and pulls all session data from the
@@ -19,7 +19,7 @@ and looks fine while having **zero remote data and no sync panel**.
 On the **source machine**:
 
 ```sh
-cd /path/to/claude-session-analysis
+cd /path/to/ai-session-analysis
 git add server/hosts.ts server/sync.ts server/scanner.ts server/api.ts server/codex-scanner.ts \
         src/App.tsx src/api.ts src/components/Overview.tsx src/components/SessionDetail.tsx \
         src/components/SessionsTable.tsx src/styles.css src/types.ts
@@ -92,19 +92,19 @@ enable sshd on it, or stage its `~/.claude` onto a reachable host.
 
 ```sh
 # Option A — git clone (ONLY after Step 0 commit+push succeeded; else it's the OLD build)
-git clone <repo-url> ~/claude-session-analysis
-cd ~/claude-session-analysis
+git clone <repo-url> ~/ai-session-analysis
+cd ~/ai-session-analysis
 
 # Option B — copy the working tree (use if Step 0 was NOT done).
 # If rsync is missing on the source host, use a tar-over-ssh pipe instead:
 ssh <user>@<source-host> \
   'tar -C /path/to/repos \
-       --exclude claude-session-analysis/node_modules \
-       --exclude claude-session-analysis/dist \
-       --exclude claude-session-analysis/.git \
-       -czf - claude-session-analysis' \
+       --exclude ai-session-analysis/node_modules \
+       --exclude ai-session-analysis/dist \
+       --exclude ai-session-analysis/.git \
+       -czf - ai-session-analysis' \
   | tar -C ~ -xzf -
-cd ~/claude-session-analysis
+cd ~/ai-session-analysis
 
 # Install reproducibly from the committed lockfile (lockfileVersion 3):
 npm ci
@@ -215,7 +215,7 @@ const BUILTIN_REMOTES: RemoteDef[] = [
 - The new host's own `local` entry stays `ssh: null` and points at the new box's
   empty `~/.claude` — fine; `scanClaudeHost` tolerates a missing/empty root
   (`server/scanner.ts`).
-- **Keep `etzevox2` hardcoded here.** The `CLAUDE_REMOTE_HOSTS` env override only
+- **Keep `etzevox2` hardcoded here.** The `AI_REMOTE_HOSTS` env override only
   parses `id=user@host` and assumes unix `~/.claude` defaults (`server/hosts.ts`)
   — it cannot express `rsyncPath` or `/mnt/c` paths.
 - Different `.lan` resolution → use IPs; different Windows user/distro → edit
@@ -231,7 +231,7 @@ const BUILTIN_REMOTES: RemoteDef[] = [
 | Served port | `vite.config.ts` | `5180` | keep unless conflict (frontend uses relative `/api`, `src/api.ts` — no other edit) |
 | Remote SSH targets / WSL paths | `server/hosts.ts` | mac/win entries | per Step 5 |
 | Old-local box | `server/hosts.ts` | `local`, `ssh:null` | promote (Step 5) |
-| Staging cache root | `server/hosts.ts` | `~/.claude-remotes` | leave default (auto-created `server/sync.ts`); ensure HOME writable, hundreds of MB free |
+| Staging cache root | `server/hosts.ts` | `~/.ai-remotes` | leave default (auto-created `server/sync.ts`); ensure HOME writable, hundreds of MB free |
 | Sync TTL | `server/sync.ts` | `90000` ms | leave default |
 | Display timezone | `src/pricing.ts` | `America/Chicago` | cosmetic |
 
@@ -256,7 +256,7 @@ the dev server. **Do not** use `build` + `preview` (no `configurePreviewServer`
 hook → backend 404s).
 
 ```sh
-cd ~/claude-session-analysis
+cd ~/ai-session-analysis
 npm run dev                      # if you added host:true
 npm run dev -- --host 0.0.0.0    # if you didn't edit the config
 ```
@@ -298,7 +298,7 @@ Reachable at **`http://<new-host-LAN-ip>:5180/`**. No frp.
 ```sh
 # tmux (recommended headless)
 tmux new -s dashboard
-cd ~/claude-session-analysis && npm run dev   # detach: Ctrl-b d ; reattach: tmux attach -t dashboard
+cd ~/ai-session-analysis && npm run dev   # detach: Ctrl-b d ; reattach: tmux attach -t dashboard
 
 # or nohup
 nohup npm run dev > ~/dashboard.log 2>&1 &

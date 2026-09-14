@@ -73,18 +73,32 @@ npm run dev    # http://localhost:5180
 Override nonstandard local stores with `CLAUDE_PROJECTS_DIR`,
 `CODEX_SESSIONS_DIR`, `PI_SESSIONS_DIR`, or `OPENCODE_DATA_DIR`.
 
-Configured remote hosts are synced into `~/.claude-remotes` too. OpenCode sync
+Configured remote hosts are synced into `~/.ai-remotes` too. OpenCode sync
 copies only `opencode.db` and its WAL companions, deliberately excluding its
 large snapshot and tool-output directories.
 
 ## Dokploy/container deployment
 
 The included Dockerfile runs the same Vite API/UI server on port 5180. Set
-`CLAUDE_REMOTE_HOSTS` to the three SSH source hosts and mount the declared
+`AI_REMOTE_HOSTS` to the SSH source hosts and mount the declared
 `/data` volume so the append-only staging archive and dedicated SSH key survive
-redeploys. `CLAUDE_DISABLE_LOCAL=1` (the image default) prevents a phantom
+redeploys. `AI_DISABLE_LOCAL=1` (the image default) prevents a phantom
 container-local host from appearing in the dashboard. `/healthz` is a
 non-scanning liveness endpoint.
+
+Dashboard-wide settings are `AI_REMOTE_HOSTS`, `AI_REMOTE_CACHE`,
+`AI_LOCAL_LABEL`, `AI_DISABLE_LOCAL`, and `AI_SYNC_TTL_MS`. Their former
+`CLAUDE_` names remain supported as fallbacks; `AI_` takes precedence. An
+existing `~/.claude-remotes` archive is reused automatically rather than
+abandoned. Set `AI_REMOTE_CACHE` explicitly to select another archive.
+`CLAUDE_PROJECTS_DIR` still names the Claude Code source, not the dashboard.
+
+The dashboard scans the four stores listed above, not the swarm-console
+`provider_costs` ledger. Direct API swarm usage is therefore not included;
+Codex-backed swarm sessions are included once their rollouts are in a
+configured Codex source directory. Remote Codex archived sessions are not
+pulled independently; the append-only cache retains only files previously
+synced from the active sessions directory.
 
 Set `DASHBOARD_PASSWORD` and a high-entropy `DASHBOARD_SESSION_SECRET` when the
 service is routed through a public hostname. Unauthenticated browser requests
