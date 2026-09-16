@@ -41,14 +41,13 @@ const FABLE_5_1_PRICING: ModelPricing = {
 /**
  * Defaults are editable in the Pricing tab (persisted to localStorage).
  * Matching is by longest prefix, so "claude-opus-4" covers 4-6/4-7/4-8
- * unless a more specific row exists.
+ * unless a more specific row exists. Rows are keyed by bare model name;
+ * pricingFor strips any "provider/" prefix, so gateway-qualified ids such as
+ * "cliproxyapi/claude-opus-5" resolve here without a dedicated row.
  */
 export const DEFAULT_PRICING: PricingTable = {
   // Anthropic standard API rates (USD / 1M tokens, 2026-09 rate card).
-  // Claude reaches Codex through CLIProxyAPI, which records provider-qualified
-  // model ids, so each 5-series row carries a matching "cliproxyapi/" alias.
   "claude-opus-5": { ...OPUS_5_PRICING },
-  "cliproxyapi/claude-opus-5": { ...OPUS_5_PRICING },
   "claude-opus-4": { input: 5, output: 25, cacheRead: 0.5, cacheWrite5m: 6.25, cacheWrite1h: 10 },
   // deprecated Opus 4.1 / 4.0 kept the old tier
   "claude-opus-4-1": { input: 15, output: 75, cacheRead: 1.5, cacheWrite5m: 18.75, cacheWrite1h: 30 },
@@ -56,20 +55,13 @@ export const DEFAULT_PRICING: PricingTable = {
   "claude-fable-5": { input: 10, output: 50, cacheRead: 1, cacheWrite5m: 12.5, cacheWrite1h: 20 },
   "claude-mythos-5": { input: 10, output: 50, cacheRead: 1, cacheWrite5m: 12.5, cacheWrite1h: 20 },
   "claude-fable-5-1": { ...FABLE_5_1_PRICING },
-  "cliproxyapi/claude-fable-5-1": { ...FABLE_5_1_PRICING },
   "claude-mythos-5-1": { ...FABLE_5_1_PRICING },
-  "cliproxyapi/claude-mythos-5-1": { ...FABLE_5_1_PRICING },
   "claude-sonnet-5": { ...SONNET_5_PRICING },
-  "cliproxyapi/claude-sonnet-5": { ...SONNET_5_PRICING },
   "claude-sonnet-4": { input: 3, output: 15, cacheRead: 0.3, cacheWrite5m: 3.75, cacheWrite1h: 6 },
   "claude-haiku-4": { input: 1, output: 5, cacheRead: 0.1, cacheWrite5m: 1.25, cacheWrite1h: 2 },
   "glm-": { input: 0.6, output: 2.2, cacheRead: 0.11, cacheWrite5m: 0, cacheWrite1h: 0 },
   "glm-5.3-flash": { ...GLM_FLASH_PRICING },
-  "zai-coding/glm-5.3-flash": { ...GLM_FLASH_PRICING },
-  "opencode/glm-5.3-flash": { ...GLM_FLASH_PRICING },
   "muse-spark-1.3-contributor": { ...MUSE_CONTRIBUTOR_PRICING },
-  "opencode/muse-spark-1.3-contributor": { ...MUSE_CONTRIBUTOR_PRICING },
-  "opencode-free-responses/muse-spark-1.3-contributor": { ...MUSE_CONTRIBUTOR_PRICING },
   // Official OpenAI Codex / ChatGPT Work rates (USD / 1M tokens).
   // Astra: 2026-09 rate card. Codex does not charge for cache writes.
   // Keep exact model rows above the generic gpt- legacy fallback.
@@ -105,12 +97,25 @@ export function resetPricing() {
   localStorage.removeItem(STORAGE_KEY);
 }
 
-export function pricingFor(model: string, table: PricingTable): ModelPricing {
+/** Longest-prefix match over the table keys, or null when nothing matches. */
+function matchKey(model: string, table: PricingTable): string | null {
   let best: string | null = null;
   for (const key of Object.keys(table)) {
     if (key === "*") continue;
     if (model.startsWith(key) && (!best || key.length > best.length)) best = key;
   }
+  return best;
+}
+
+export function pricingFor(model: string, table: PricingTable): ModelPricing {
+  // Gateways such as CLIProxyAPI, OpenCode and Z.ai record the same upstream
+  // model behind a "provider/" prefix and bill it at the underlying model's
+  // rate, so an unmatched qualified id retries on the bare model name. The
+  // qualified id is tried first so an explicit per-route override still wins.
+  const slash = model.lastIndexOf("/");
+  const best =
+    matchKey(model, table) ??
+    (slash === -1 ? null : matchKey(model.slice(slash + 1), table));
   return table[best ?? "*"] ?? DEFAULT_PRICING["*"];
 }
 
