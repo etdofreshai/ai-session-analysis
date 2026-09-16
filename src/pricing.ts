@@ -22,19 +22,45 @@ const MUSE_CONTRIBUTOR_PRICING: ModelPricing = {
   input: 0.10, output: 0.20, cacheRead: 0.002, cacheWrite5m: 0, cacheWrite1h: 0,
 };
 
+// USD / 1M tokens, verified 2026-09-16:
+// https://docs.anthropic.com/en/docs/about-claude/pricing
+// Opus 5 / Opus 4.8 fast mode bills at a $10/$50 premium, but transcripts do
+// not flag fast mode, so the standard tier is used here.
+const OPUS_5_PRICING: ModelPricing = {
+  input: 5, output: 25, cacheRead: 0.5, cacheWrite5m: 6.25, cacheWrite1h: 10,
+};
+const SONNET_5_PRICING: ModelPricing = {
+  input: 2, output: 10, cacheRead: 0.2, cacheWrite5m: 2.5, cacheWrite1h: 4,
+};
+// Fable/Mythos 5.1 keep the 5.x token rates, but cache hits drop to 0.025x
+// base input instead of the usual 0.1x.
+const FABLE_5_1_PRICING: ModelPricing = {
+  input: 10, output: 50, cacheRead: 0.25, cacheWrite5m: 12.5, cacheWrite1h: 20,
+};
+
 /**
  * Defaults are editable in the Pricing tab (persisted to localStorage).
  * Matching is by longest prefix, so "claude-opus-4" covers 4-6/4-7/4-8
  * unless a more specific row exists.
  */
 export const DEFAULT_PRICING: PricingTable = {
-  // Anthropic standard API rates (USD / 1M tokens, 2026-08).
+  // Anthropic standard API rates (USD / 1M tokens, 2026-09 rate card).
+  // Claude reaches Codex through CLIProxyAPI, which records provider-qualified
+  // model ids, so each 5-series row carries a matching "cliproxyapi/" alias.
+  "claude-opus-5": { ...OPUS_5_PRICING },
+  "cliproxyapi/claude-opus-5": { ...OPUS_5_PRICING },
   "claude-opus-4": { input: 5, output: 25, cacheRead: 0.5, cacheWrite5m: 6.25, cacheWrite1h: 10 },
   // deprecated Opus 4.1 / 4.0 kept the old tier
   "claude-opus-4-1": { input: 15, output: 75, cacheRead: 1.5, cacheWrite5m: 18.75, cacheWrite1h: 30 },
   "claude-opus-4-2": { input: 15, output: 75, cacheRead: 1.5, cacheWrite5m: 18.75, cacheWrite1h: 30 },
   "claude-fable-5": { input: 10, output: 50, cacheRead: 1, cacheWrite5m: 12.5, cacheWrite1h: 20 },
   "claude-mythos-5": { input: 10, output: 50, cacheRead: 1, cacheWrite5m: 12.5, cacheWrite1h: 20 },
+  "claude-fable-5-1": { ...FABLE_5_1_PRICING },
+  "cliproxyapi/claude-fable-5-1": { ...FABLE_5_1_PRICING },
+  "claude-mythos-5-1": { ...FABLE_5_1_PRICING },
+  "cliproxyapi/claude-mythos-5-1": { ...FABLE_5_1_PRICING },
+  "claude-sonnet-5": { ...SONNET_5_PRICING },
+  "cliproxyapi/claude-sonnet-5": { ...SONNET_5_PRICING },
   "claude-sonnet-4": { input: 3, output: 15, cacheRead: 0.3, cacheWrite5m: 3.75, cacheWrite1h: 6 },
   "claude-haiku-4": { input: 1, output: 5, cacheRead: 0.1, cacheWrite5m: 1.25, cacheWrite1h: 2 },
   "glm-": { input: 0.6, output: 2.2, cacheRead: 0.11, cacheWrite5m: 0, cacheWrite1h: 0 },
