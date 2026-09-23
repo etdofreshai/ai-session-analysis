@@ -29,6 +29,10 @@ const MUSE_CONTRIBUTOR_PRICING: ModelPricing = {
 const OPUS_5_PRICING: ModelPricing = {
   input: 5, output: 25, cacheRead: 0.5, cacheWrite5m: 6.25, cacheWrite1h: 10,
 };
+// Opus 5.5 (verified 2026-09-23): 20% below Opus 5, cache hits $0.20.
+const OPUS_5_5_PRICING: ModelPricing = {
+  input: 4, output: 20, cacheRead: 0.2, cacheWrite5m: 5, cacheWrite1h: 8,
+};
 const SONNET_5_PRICING: ModelPricing = {
   input: 2, output: 10, cacheRead: 0.2, cacheWrite5m: 2.5, cacheWrite1h: 4,
 };
@@ -48,6 +52,7 @@ const FABLE_5_1_PRICING: ModelPricing = {
 export const DEFAULT_PRICING: PricingTable = {
   // Anthropic standard API rates (USD / 1M tokens, 2026-09 rate card).
   "claude-opus-5": { ...OPUS_5_PRICING },
+  "claude-opus-5-5": { ...OPUS_5_5_PRICING },
   "claude-opus-4": { input: 5, output: 25, cacheRead: 0.5, cacheWrite5m: 6.25, cacheWrite1h: 10 },
   // deprecated Opus 4.1 / 4.0 kept the old tier
   "claude-opus-4-1": { input: 15, output: 75, cacheRead: 1.5, cacheWrite5m: 18.75, cacheWrite1h: 30 },
@@ -63,9 +68,13 @@ export const DEFAULT_PRICING: PricingTable = {
   "glm-5.3-flash": { ...GLM_FLASH_PRICING },
   "muse-spark-1.3-contributor": { ...MUSE_CONTRIBUTOR_PRICING },
   // Official OpenAI Codex / ChatGPT Work rates (USD / 1M tokens).
-  // Astra: 2026-09 rate card. Codex does not charge for cache writes.
+  // GPT-6 rates verified 2026-09-23 (standard tier, short context):
+  // https://developers.openai.com/api/docs/pricing
+  // OpenAI lists one cache-write rate; it fills both write columns.
   // Keep exact model rows above the generic gpt- legacy fallback.
-  "gpt-6-astra": { input: 10, output: 50, cacheRead: 1, cacheWrite5m: 0, cacheWrite1h: 0 },
+  "gpt-6-astra": { input: 10, output: 50, cacheRead: 1, cacheWrite5m: 12.5, cacheWrite1h: 12.5 },
+  "gpt-6-sol": { input: 2, output: 10, cacheRead: 0.2, cacheWrite5m: 2.5, cacheWrite1h: 2.5 },
+  "gpt-6-luna": { input: 0.1, output: 0.5, cacheRead: 0.01, cacheWrite5m: 0.125, cacheWrite1h: 0.125 },
   "gpt-5.6-sol": { input: 5, output: 30, cacheRead: 0.5, cacheWrite5m: 0, cacheWrite1h: 0 },
   "gpt-5.6-terra": { input: 2.5, output: 15, cacheRead: 0.25, cacheWrite5m: 0, cacheWrite1h: 0 },
   "gpt-5.6-luna": { input: 1, output: 6, cacheRead: 0.1, cacheWrite5m: 0, cacheWrite1h: 0 },

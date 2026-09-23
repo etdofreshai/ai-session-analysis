@@ -27,6 +27,18 @@ assert.deepEqual(pricingFor("glm-4.7", DEFAULT_PRICING), DEFAULT_PRICING["glm-"]
 const opus5 = { input: 5, output: 25, cacheRead: 0.5, cacheWrite5m: 6.25, cacheWrite1h: 10 };
 const sonnet5 = { input: 2, output: 10, cacheRead: 0.2, cacheWrite5m: 2.5, cacheWrite1h: 4 };
 const fable51 = { input: 10, output: 50, cacheRead: 0.25, cacheWrite5m: 12.5, cacheWrite1h: 20 };
+// Rates checked 2026-09-23 against the Anthropic and OpenAI pricing pages.
+for (const [model, rate] of Object.entries({
+  "claude-opus-5-5": { input: 4, output: 20, cacheRead: 0.2, cacheWrite5m: 5, cacheWrite1h: 8 },
+  "claude-fable-5-1": fable51,
+  "gpt-6-astra": { input: 10, output: 50, cacheRead: 1, cacheWrite5m: 12.5, cacheWrite1h: 12.5 },
+  "gpt-6-sol": { input: 2, output: 10, cacheRead: 0.2, cacheWrite5m: 2.5, cacheWrite1h: 2.5 },
+  "gpt-6-luna": { input: 0.1, output: 0.5, cacheRead: 0.01, cacheWrite5m: 0.125, cacheWrite1h: 0.125 },
+}))
+  for (const prefix of ["", "cc/", "cx/", "cliproxyapi/"])
+    assert.deepEqual(pricingFor(prefix + model, DEFAULT_PRICING), rate, prefix + model);
+// Opus 5.5 must not fall back to the Opus 5 row.
+assert.notDeepEqual(pricingFor("claude-opus-5-5", DEFAULT_PRICING), opus5);
 // Any "provider/" prefix resolves to the underlying model, with no dedicated row.
 for (const prefix of ["", "cliproxyapi/", "anthropic/", "some-new-gateway/"]) {
   assert.deepEqual(pricingFor(`${prefix}claude-opus-5`, DEFAULT_PRICING), opus5);
