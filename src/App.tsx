@@ -1,8 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
-import type { StatsResponse } from "./types";
-import { fetchStats } from "./api";
+import { useEffect, useState } from "react";
+import { fetchMeta, type MetaResponse } from "./api";
 import { loadPricing, type PricingTable } from "./pricing";
-import { flatten } from "./aggregate";
 import Overview from "./components/Overview";
 import SessionsTable from "./components/SessionsTable";
 import SessionDetailView from "./components/SessionDetail";
@@ -18,18 +16,21 @@ function tabFromHash(): Tab {
 }
 
 export default function App() {
-  const [stats, setStats] = useState<StatsResponse | null>(null);
+  const [stats, setStats] = useState<MetaResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [tab, setTab] = useState<Tab>(tabFromHash);
   const [pricing, setPricing] = useState<PricingTable>(() => loadPricing());
   const [selected, setSelected] = useState<{ project: string; id: string; source: string; host: string } | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  // Bumped on every refresh; the Overview and Sessions views refetch their own small responses.
+  const [tick, setTick] = useState(0);
 
   const refresh = async () => {
     setLoading(true);
     try {
-      setStats(await fetchStats());
+      setStats(await fetchMeta(pricing));
+      setTick((t) => t + 1);
       setError(null);
     } catch (e: any) {
       setError(String(e?.message ?? e));
@@ -55,14 +56,19 @@ export default function App() {
 
   useEffect(() => {
     if (!autoRefresh) return;
-    const t = setInterval(refresh, 30_000);
-    return () => clearInterval(t);
-  }, [autoRefresh]);
-
-  const sessions = useMemo(
-    () => (stats ? flatten(stats, pricing) : []),
-    [stats, pricing]
-  );
+    const t = setInterval(() => {
+      if (document.visibilityState === "visible") refresh();
+    }, 30_000);
+    // Catch up as soon as a backgrounded tab comes back.
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [autoRefresh, pricing]);
 
   return (
     <div className="app">
@@ -71,7 +77,7 @@ export default function App() {
           AI Session Analysis
           {stats && (
             <span className="sub">
-              {sessions.length} sessions · {stats.projects.length} projects ·
+              {stats.sessionCount} sessions · {stats.projectCount} projects ·
               {stats.hosts.length} hosts · scanned in {stats.scanMs}ms
             </span>
           )}
@@ -116,11 +122,12 @@ export default function App() {
       {!stats && !error && <div className="loading">Scanning session files…</div>}
 
       {stats && tab === "overview" && (
-        <Overview sessions={sessions} pricing={pricing} />
+        <Overview tick={tick} pricing={pricing} />
       )}
       {stats && tab === "sessions" && (
         <SessionsTable
-          sessions={sessions}
+          tick={tick}
+          meta={stats}
           pricing={pricing}
           onSelect={(s) => setSelected({ project: s.project, id: s.id, source: s.source, host: s.host })}
         />

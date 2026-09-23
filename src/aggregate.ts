@@ -215,9 +215,8 @@ export function windowTotals(
   return t;
 }
 
-export function flatten(stats: StatsResponse, pricing: PricingTable): FlatSession[] {
+export function flatten(stats: StatsResponse, pricing: PricingTable, now = Date.now()): FlatSession[] {
   const out: FlatSession[] = [];
-  const now = Date.now();
   for (const p of stats.projects) {
     const disp = shortProject(p.name, p.displayPath);
     for (const s of p.sessions) {

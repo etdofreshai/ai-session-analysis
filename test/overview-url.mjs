@@ -7,8 +7,12 @@ const base = process.env.TEST_URL || "http://localhost:5187";
 const browser = await chromium.launch({ headless: true });
 try {
   const page = await browser.newPage();
-  await page.route("**/api/stats", (route) => route.fulfill({
-    json: { projects: [], hosts: [], sync: [], scanMs: 0 },
+  await page.route("**/api/meta?*", (route) => route.fulfill({
+    json: { hosts: [], sync: [], scanMs: 0, sessionCount: 0, projectCount: 0, projectNames: [], hostNames: [] },
+  }));
+  await page.route("**/api/overview?*", (route) => route.fulfill({
+    json: { totals: { cost: 0, allTok: 0, prompts: 0, asst: 0, subagents: 0, errors: 0, toolUses: 0, sessions: 0 },
+      costLastHour: 0, buckets: [], models: [], projects: [], tools: [] },
   }));
   await page.goto(base);
   await page.evaluate(() => {
@@ -33,9 +37,9 @@ try {
   assert.equal(await page.getByRole("button", { name: "Simple", exact: true }).getAttribute("aria-pressed"), "true");
   await page.getByRole("button", { name: "Reset view", exact: true }).click();
   assert.equal(new URL(page.url()).search, "");
-  await page.getByRole("heading", { name: "Estimated cost per day (by model)", exact: true }).waitFor();
+  await page.getByRole("heading", { name: "Estimated cost per day (by model) (1M)", exact: true }).waitFor();
   await page.reload();
-  await page.getByRole("heading", { name: "Estimated cost per day (by model)", exact: true }).waitFor();
+  await page.getByRole("heading", { name: "Estimated cost per day (by model) (1M)", exact: true }).waitFor();
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${base}/?granularity=day&range=1w#/overview`);
   await page.getByRole("heading", { name: "Estimated cost per day (by model) (1W)", exact: true }).waitFor();

@@ -19,8 +19,18 @@ databases never ship raw to the browser). Parsed per-session stats are cached by
 file/database modification state, so the first scan is the slow one and
 refreshes are cheap.
 
-- `GET /api/stats` — aggregated stats for every session in every project
+The browser only downloads what the current view shows; aggregation runs on
+the server (`server/views.ts`, reusing `src/aggregate.ts`), cached per scan
+generation, pricing and minute, and served gzipped with an ETag.
+
+- `GET /api/meta` — header counts, sync status, filter options
+- `GET /api/overview?granularity=&range=` — totals, chart buckets, model/project/tool tables
+- `GET /api/sessions?sort=&desc=&q=&windowMs=&offset=&limit=&host=&source=&project=` — one page of table rows
 - `GET /api/session?project=&id=` — full drill-down with an event timeline
+- `GET /api/stats` — every session in full (large; kept for scripts)
+
+The view endpoints take an optional `pricing` param (the Pricing tab's JSON
+table); the app omits it when the defaults are in use.
 
 Claude subagent transcripts and OpenCode child sessions are parsed and
 attributed to their parent session.

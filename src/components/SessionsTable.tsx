@@ -1,5 +1,6 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { sessionIdentity, windowCost, type FlatSession } from "../aggregate";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { sessionIdentity } from "../aggregate";
+import { fetchSessions, type MetaResponse, type SessionRow } from "../api";
 import type { PricingTable } from "../pricing";
 import { fmtDateTimeCT, fmtDuration, fmtTokens, fmtUsd } from "../pricing";
 
@@ -44,6 +45,9 @@ const DROP_PRIORITY: ColKey[] = [
   "models", "subagents", "title", "duration", "prompts", "host", "src", "date",
 ];
 
+// Rows per request; "Show more" grows the page.
+const PAGE = 100;
+
 const WINDOW_OPTIONS: { label: string; ms: number }[] = [
   { label: "30min", ms: 30 * 60_000 },
   { label: "1hr", ms: 60 * 60_000 },
@@ -58,11 +62,13 @@ const WINDOW_OPTIONS: { label: string; ms: number }[] = [
 ];
 
 export default function SessionsTable({
-  sessions, pricing, onSelect,
+  tick, meta, pricing, onSelect,
 }: {
-  sessions: FlatSession[];
+  /** Changes on every refresh. */
+  tick: number;
+  meta: MetaResponse;
   pricing: PricingTable;
-  onSelect: (s: FlatSession) => void;
+  onSelect: (s: SessionRow) => void;
 }) {
   const [savedSettings] = useState(loadSettings);
   const [sortKey, setSortKey] = useState<SortKey>(() =>
@@ -82,6 +88,8 @@ export default function SessionsTable({
 
   const [hidden, setHidden] = useState<Set<ColKey>>(() => new Set(savedSettings.hidden ?? []));
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [rows, setRows] = useState<SessionRow[]>([]);
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const tableRef = useRef<HTMLTableElement>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
@@ -115,7 +123,7 @@ export default function SessionsTable({
   // IS the column width — measure all headers once, then subtract widths along
   // the drop-priority list until the overflow is gone, and hide in one update.
   useLayoutEffect(() => {
-    if (autoFitDone.current || sessions.length === 0) return;
+    if (autoFitDone.current || rows.length === 0) return;
     autoFitDone.current = true;
     const table = tableRef.current;
     const scroll = scrollRef.current;
@@ -133,7 +141,7 @@ export default function SessionsTable({
       toHide.add(key);
     }
     setHidden(toHide);
-  }, [sessions.length]);
+  }, [rows.length]);
 
   useEffect(() => {
     if (!pickerOpen) return;
@@ -145,58 +153,31 @@ export default function SessionsTable({
     return () => document.removeEventListener("mousedown", onDown);
   }, [pickerOpen]);
 
-  // Cost over the selected trailing window, per session (incl. subagents).
-  const winCost = useMemo(() => {
-    const now = Date.now();
-    const map = new Map<string, number>();
-    for (const s of sessions) {
-      let c = windowCost(s.hourlyUsage, pricing, windowMs, now);
-      for (const sub of s.subagents)
-        c += windowCost(sub.hourlyUsage, pricing, windowMs, now);
-      map.set(sessionIdentity(s), c);
-    }
-    return map;
-  }, [sessions, pricing, windowMs]);
+  // Search runs on the server; wait for typing to pause before asking.
+  const [query, setQuery] = useState(filter);
+  useEffect(() => {
+    const t = setTimeout(() => setQuery(filter), 300);
+    return () => clearTimeout(t);
+  }, [filter]);
 
-  const projects = useMemo(
-    () => [...new Set(sessions.map((s) => s.projectDisplay))].sort(),
-    [sessions]
-  );
+  // Sorting, filtering and paging all happen on the server.
+  const [total, setTotal] = useState<number | null>(null);
+  const [limit, setLimit] = useState(PAGE);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => setLimit(PAGE), [sortKey, desc, query, projectFilter, sourceFilter, hostFilter, windowMs, pricing]);
+  useEffect(() => {
+    const ctl = new AbortController();
+    fetchSessions({
+      sort: sortKey, desc, q: query, windowMs, offset: 0, limit,
+      host: hostFilter, source: sourceFilter, project: projectFilter,
+    }, pricing, ctl.signal)
+      .then((d) => { setRows(d.rows); setTotal(d.total); setError(null); })
+      .catch((e) => { if (!ctl.signal.aborted) setError(String(e?.message ?? e)); });
+    return () => ctl.abort();
+  }, [sortKey, desc, query, projectFilter, sourceFilter, hostFilter, windowMs, pricing, limit, tick]);
 
-  const hostsList = useMemo(
-    () => [...new Set(sessions.map((s) => s.host))].sort(),
-    [sessions]
-  );
-
-  const rows = useMemo(() => {
-    let r = sessions;
-    if (sourceFilter) r = r.filter((s) => s.source === sourceFilter);
-    if (hostFilter) r = r.filter((s) => s.host === hostFilter);
-    if (projectFilter) r = r.filter((s) => s.projectDisplay === projectFilter);
-    if (filter) {
-      const f = filter.toLowerCase();
-      r = r.filter(
-        (s) =>
-          (s.title ?? "").toLowerCase().includes(f) ||
-          (s.lastPrompt ?? "").toLowerCase().includes(f) ||
-          s.id.includes(f) ||
-          Object.keys(s.models).some((m) => m.toLowerCase().includes(f)) ||
-          s.effortModes.some((e) => e.toLowerCase().includes(f))
-      );
-    }
-    const key = (s: FlatSession): number => {
-      switch (sortKey) {
-        case "date": return Date.parse(s.lastTs ?? s.firstTs ?? "") || 0;
-        case "cost": return s.cost + s.subagentCost;
-        case "costWin": return winCost.get(sessionIdentity(s)) ?? 0;
-        case "tokens": return s.totalTokensAll;
-        case "prompts": return s.counts.userPrompts;
-        case "duration": return s.durationMs;
-        case "subagents": return s.subagents.length;
-      }
-    };
-    return [...r].sort((a, b) => (desc ? key(b) - key(a) : key(a) - key(b)));
-  }, [sessions, sortKey, desc, filter, projectFilter, sourceFilter, hostFilter, winCost]);
+  const projects = meta.projectNames;
+  const hostsList = meta.hostNames;
 
   const th = (label: string, k: SortKey) => (
     <th
@@ -256,7 +237,7 @@ export default function SessionsTable({
             ))}
           </select>
         </label>
-        <span className="muted">{rows.length} sessions</span>
+        <span className="muted">{total ?? "…"} sessions</span>
         <button className="reset-view" type="button" onClick={resetView}>Reset view</button>
         <div className="columns-picker" ref={pickerRef}>
           <button type="button" onClick={() => setPickerOpen((o) => !o)}>
@@ -278,6 +259,7 @@ export default function SessionsTable({
           )}
         </div>
       </div>
+      {error && <div className="error-banner">Failed to load sessions: {error}</div>}
       <div className="table-scroll" ref={scrollRef}>
       <table className="sessions" ref={tableRef}>
         <thead>
@@ -322,7 +304,7 @@ export default function SessionsTable({
               )}
               {visible("models") && (
                 <td className="nowrap">
-                  {Object.keys(s.models).map((m) => (
+                  {s.models.map((m) => (
                     <span key={m} className="chip">{m.replace("claude-", "")}</span>
                   ))}
                   {s.effortModes.filter((e) => e !== "normal").map((e) => (
@@ -330,14 +312,14 @@ export default function SessionsTable({
                   ))}
                 </td>
               )}
-              {visible("prompts") && <td className="num">{s.counts.userPrompts}</td>}
-              {visible("tokens") && <td className="num">{fmtTokens(s.totalTokensAll)}</td>}
-              {visible("subagents") && <td className="num">{s.subagents.length || ""}</td>}
+              {visible("prompts") && <td className="num">{s.prompts}</td>}
+              {visible("tokens") && <td className="num">{fmtTokens(s.tokens)}</td>}
+              {visible("subagents") && <td className="num">{s.subagents || ""}</td>}
               {visible("duration") && <td className="num">{fmtDuration(s.durationMs)}</td>}
               {visible("costWin") && (
                 <td className="num cost">
                   {(() => {
-                    const c = winCost.get(sessionIdentity(s)) ?? 0;
+                    const c = s.costWin;
                     return c > 0.0005 ? fmtUsd(c) : "";
                   })()}
                 </td>
@@ -355,6 +337,13 @@ export default function SessionsTable({
         </tbody>
       </table>
       </div>
+      {total != null && rows.length < total && (
+        <div className="filters">
+          <button type="button" onClick={() => setLimit((n) => n + PAGE)}>
+            Show more ({rows.length} of {total})
+          </button>
+        </div>
+      )}
     </div>
   );
 }

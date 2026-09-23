@@ -1,6 +1,11 @@
 import type { Plugin } from "vite";
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { gzipSync } from "node:zlib";
 import { scanAll, sessionDetail } from "./scanner";
+import {
+  context, meta, overview, sessionsPage, viewKey, SORT_KEYS,
+  type OverviewParams, type SessionsParams, type SortKey,
+} from "./views";
 
 const SESSION_COOKIE = "ai_session_access";
 const SESSION_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
@@ -11,6 +16,34 @@ function sendJson(res: any, status: number, body: unknown) {
   res.setHeader("Content-Type", "application/json");
   res.setHeader("Cache-Control", "no-store");
   res.end(json);
+}
+
+/** Compressed JSON with an ETag; the browser revalidates instead of re-downloading. */
+function sendView(req: any, res: any, etag: string, make: () => unknown) {
+  const tag = `W/"${createHmac("sha1", "etag").update(etag).digest("base64url").slice(0, 22)}"`;
+  res.setHeader("ETag", tag);
+  res.setHeader("Cache-Control", "private, no-cache");
+  res.setHeader("Vary", "Accept-Encoding, Cookie");
+  if (String(req.headers["if-none-match"] ?? "").split(/\s*,\s*/).includes(tag)) {
+    res.statusCode = 304;
+    res.end();
+    return;
+  }
+  const json = Buffer.from(JSON.stringify(make()));
+  res.statusCode = 200;
+  res.setHeader("Content-Type", "application/json");
+  if (/\bgzip\b/.test(String(req.headers["accept-encoding"] ?? "")) && json.length > 1024) {
+    res.setHeader("Content-Encoding", "gzip");
+    res.end(gzipSync(json, { level: 6 }));
+  } else res.end(json);
+}
+
+function filterParams(q: URLSearchParams) {
+  return {
+    host: q.get("host") || undefined,
+    source: q.get("source") || undefined,
+    project: q.get("project") || undefined,
+  };
 }
 
 function safeEqual(a: string, b: string): boolean {
@@ -146,6 +179,47 @@ export function sessionApiPlugin(): Plugin {
             }
             if (url.pathname === "/api/stats") {
               sendJson(res, 200, await scanAll());
+              return;
+            }
+            if (url.pathname === "/api/meta" || url.pathname === "/api/overview" || url.pathname === "/api/sessions") {
+              const q = url.searchParams;
+              let ctx;
+              try {
+                ctx = context(q.get("pricing"));
+              } catch (e: any) {
+                sendJson(res, 400, { error: `invalid pricing: ${e?.message ?? e}` });
+                return;
+              }
+              if (url.pathname === "/api/meta") {
+                sendView(req, res, viewKey(ctx, "meta", null), () => meta(ctx));
+                return;
+              }
+              if (url.pathname === "/api/overview") {
+                const gran = q.get("granularity") === "hour" ? "hour" : "day";
+                const p: OverviewParams = { gran, range: q.get("range") ?? (gran === "hour" ? "24h" : "1m"), ...filterParams(q) };
+                try {
+                  sendView(req, res, viewKey(ctx, "overview", p), () => overview(ctx, p));
+                } catch (e) {
+                  if (e instanceof RangeError) sendJson(res, 400, { error: e.message });
+                  else throw e;
+                }
+                return;
+              }
+              const sort = q.get("sort") as SortKey;
+              const int = (name: string, fallback: number, min: number, max: number) => {
+                const n = Math.trunc(Number(q.get(name) ?? fallback));
+                return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback;
+              };
+              const p: SessionsParams = {
+                sort: SORT_KEYS.includes(sort) ? sort : "date",
+                desc: q.get("desc") !== "0",
+                q: (q.get("q") ?? "").slice(0, 200),
+                windowMs: int("windowMs", 3_600_000, 60_000, 7 * 86_400_000),
+                offset: int("offset", 0, 0, 1e7),
+                limit: int("limit", 100, 1, 500),
+                ...filterParams(q),
+              };
+              sendView(req, res, viewKey(ctx, "sessions", p), () => sessionsPage(ctx, p));
               return;
             }
             if (url.pathname === "/api/session") {

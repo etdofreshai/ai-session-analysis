@@ -1,13 +1,11 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip,
   PieChart, Pie, Cell, CartesianGrid,
 } from "recharts";
-import type { FlatSession, RangeKey, HourRangeKey, Granularity } from "../aggregate";
-import {
-  byDay, byHour, costByModel, costByProject, topTools, modelColor,
-  RANGES, HOUR_RANGES, windowTotals,
-} from "../aggregate";
+import type { RangeKey, HourRangeKey, Granularity } from "../aggregate";
+import { modelColor, RANGES, HOUR_RANGES } from "../aggregate";
+import { fetchOverview, type OverviewResponse } from "../api";
 import type { PricingTable } from "../pricing";
 import { fmtTokens, fmtUsd } from "../pricing";
 import { useViewSetting } from "../useViewSetting";
@@ -15,9 +13,10 @@ import { useViewSetting } from "../useViewSetting";
 type ModelViewMode = "simple" | "broken-out";
 
 export default function Overview({
-  sessions, pricing,
+  tick, pricing,
 }: {
-  sessions: FlatSession[];
+  /** Changes on every refresh. */
+  tick: number;
   pricing: PricingTable;
 }) {
   // Time granularity for the trend chart, plus a remembered range per mode.
@@ -25,7 +24,7 @@ export default function Overview({
     "overviewGranularity", "granularity", ["day", "hour"], "day"
   );
   const [dayRange, setDayRange] = useViewSetting<RangeKey>(
-    "overviewDayRange", "range", RANGES.map((r) => r.key), "all"
+    "overviewDayRange", "range", RANGES.map((r) => r.key), "1m"
   );
   const [hourRange, setHourRange] = useViewSetting<HourRangeKey>(
     "overviewHourRange", "range", HOUR_RANGES.map((r) => r.key), "24h"
@@ -43,33 +42,34 @@ export default function Overview({
     localStorage.removeItem("overviewHourRange");
     localStorage.removeItem("overviewModelView");
     setGran("day");
-    setDayRange("all");
+    setDayRange("1m");
     setHourRange("24h");
     setModelView("broken-out");
   };
 
-  // Recompute the window anchor when the data refreshes (not on every render).
-  const now = useMemo(() => Date.now(), [sessions]);
   const activeRange =
     gran === "hour"
       ? HOUR_RANGES.find((r) => r.key === hourRange)!
       : RANGES.find((r) => r.key === dayRange)!;
-  const fromMs = useMemo(
-    () => (activeRange.windowMs == null ? null : now - activeRange.windowMs),
-    [activeRange, now]
-  );
   // Suffix appended to windowed card/chart labels (blank only for daily all-time).
   const suffix =
     gran === "day" && dayRange === "all" ? "" : ` (${activeRange.label})`;
 
-  // The trend chart's buckets: per-hour or per-day, both stacked by model.
-  const buckets = useMemo(
-    () => (gran === "hour" ? byHour(sessions, pricing, fromMs) : byDay(sessions, pricing, fromMs)),
-    [gran, sessions, pricing, fromMs]
-  );
-  const models = useMemo(() => costByModel(sessions, pricing, fromMs), [sessions, pricing, fromMs]);
-  const projects = useMemo(() => costByProject(sessions, pricing, fromMs).slice(0, 12), [sessions, pricing, fromMs]);
-  const tools = useMemo(() => topTools(sessions, 15, fromMs), [sessions, fromMs]);
+  // Totals, buckets and tables are computed server-side for exactly this view.
+  const [data, setData] = useState<OverviewResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    const ctl = new AbortController();
+    fetchOverview({ granularity: gran, range: activeRange.key }, pricing, ctl.signal)
+      .then((d) => { setData(d); setError(null); })
+      .catch((e) => { if (!ctl.signal.aborted) setError(String(e?.message ?? e)); });
+    return () => ctl.abort();
+  }, [gran, activeRange.key, pricing, tick]);
+
+  const buckets = data?.buckets ?? EMPTY;
+  const models = data?.models ?? EMPTY;
+  const projects = data?.projects ?? EMPTY;
+  const tools = data?.tools ?? EMPTY;
 
   // Only models that actually cost something feed the donut.
   const pieModels = useMemo(() => models.filter((m) => m.cost > 0), [models]);
@@ -83,13 +83,8 @@ export default function Overview({
     [pieModels]
   );
 
-  // Cost/token totals + message counts scoped to the selected window.
-  const totals = useMemo(() => windowTotals(sessions, pricing, fromMs), [sessions, pricing, fromMs]);
-  // "Last 1h" is a live, window-independent metric — always across all sessions.
-  const costLastHour = useMemo(
-    () => sessions.reduce((a, s) => a + s.costLastHour, 0),
-    [sessions]
-  );
+  const totals = data?.totals ?? ZERO_TOTALS;
+  const costLastHour = data?.costLastHour ?? 0;
 
   const modelNames = useMemo(() => {
     const set = new Set<string>();
@@ -182,15 +177,16 @@ export default function Overview({
         <button className="reset-view" type="button" onClick={resetView}>Reset view</button>
       </div>
 
+      {error && <div className="error-banner">Failed to load overview: {error}</div>}
       <div className="cards">
-        <Card label={`Est. total cost${suffix}`} value={fmtUsd(totals.cost)} />
-        <Card label="Est. cost (last 1h)" value={fmtUsd(costLastHour)} />
-        <Card label={`Total tokens (incl. cache)${suffix}`} value={fmtTokens(totals.allTok)} />
-        <Card label={`User prompts${suffix}`} value={totals.prompts.toLocaleString()} />
-        <Card label={`Assistant messages${suffix}`} value={totals.asst.toLocaleString()} />
-        <Card label={`Tool calls${suffix}`} value={totals.toolUses.toLocaleString()} />
-        <Card label={`Subagent runs${suffix}`} value={totals.subagents.toLocaleString()} />
-        <Card label={`API errors${suffix}`} value={totals.errors.toLocaleString()} />
+        <Card label={`Est. total cost${suffix}`} value={data ? fmtUsd(totals.cost) : "…"} />
+        <Card label="Est. cost (last 1h)" value={data ? fmtUsd(costLastHour) : "…"} />
+        <Card label={`Total tokens (incl. cache)${suffix}`} value={data ? fmtTokens(totals.allTok) : "…"} />
+        <Card label={`User prompts${suffix}`} value={data ? totals.prompts.toLocaleString() : "…"} />
+        <Card label={`Assistant messages${suffix}`} value={data ? totals.asst.toLocaleString() : "…"} />
+        <Card label={`Tool calls${suffix}`} value={data ? totals.toolUses.toLocaleString() : "…"} />
+        <Card label={`Subagent runs${suffix}`} value={data ? totals.subagents.toLocaleString() : "…"} />
+        <Card label={`API errors${suffix}`} value={data ? totals.errors.toLocaleString() : "…"} />
       </div>
 
       <div className="panel">
@@ -354,6 +350,11 @@ export default function Overview({
     </div>
   );
 }
+
+const EMPTY: never[] = [];
+const ZERO_TOTALS = {
+  cost: 0, allTok: 0, prompts: 0, asst: 0, subagents: 0, errors: 0, toolUses: 0, sessions: 0,
+};
 
 // Tooltip for the per-bucket cost chart (daily or hourly). In broken-out mode,
 // keep the three token-cost lines together in one stable group per model instead of
