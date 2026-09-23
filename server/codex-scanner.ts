@@ -22,6 +22,36 @@ export function codexRoot(): string {
   );
 }
 
+/**
+ * 9gate combos (auto, opus, fusion-*, ...) appear in turn_context as the
+ * combo name. 9gate writes the member it actually routed to into the rollout
+ * as a commentary message ("Auto: cc/claude-opus-5 · high · ..." or
+ * "Jev: cx/gpt-5.6-sol · medium · ..."), with an id starting "msg_9gate_".
+ * Usage after that notice belongs to the routed model. 9gate only repeats the
+ * notice when the pick changes, so the pick carries over to later turns until
+ * the declared model changes.
+ */
+export function routedModelTracker() {
+  let declared: string | null = null;
+  let picked: string | null = null;
+  return {
+    turn(model: string): string {
+      if (model !== declared) picked = null;
+      declared = model;
+      return picked ?? model;
+    },
+    notice(p: any): string | null {
+      if (p?.type !== "message" || p.role !== "assistant" || !String(p.id ?? "").startsWith("msg_9gate_"))
+        return null;
+      const text = (p.content ?? []).map((c: any) => c?.text ?? "").join("");
+      const m = /^(?:Auto|Jev): (\S+) ·/.exec(text);
+      if (!m) return null;
+      picked = m[1].slice(m[1].lastIndexOf("/") + 1);
+      return picked;
+    },
+  };
+}
+
 function emptyUsage(): ModelUsage {
   return {
     calls: 0,
@@ -125,7 +155,7 @@ function forEachJsonRecord(filePath: string, visit: (record: any) => void): bool
   }
 }
 
-function parseCodexTranscript(filePath: string): ParsedCodex {
+export function parseCodexTranscript(filePath: string): ParsedCodex {
   const out: ParsedCodex = {
     firstTs: null,
     lastTs: null,
@@ -154,6 +184,7 @@ function parseCodexTranscript(filePath: string): ParsedCodex {
   // exactly one model, it is safe to use that model for those leading records.
   // Multi-model and declaration-free files stay explicitly "unknown".
   const declaredModels = new Set<string>();
+  const routed = routedModelTracker();
   const leadingTokenUsage: Array<{ usage: any; ts?: string }> = [];
   let curModel = "unknown";
   const addTokenUsage = (model: string, u: any, ts?: string) => {
@@ -197,7 +228,7 @@ function parseCodexTranscript(filePath: string): ParsedCodex {
     if (kind === "turn_context") {
       if (typeof p.model === "string") {
         declaredModels.add(p.model);
-        curModel = p.model;
+        curModel = routed.turn(p.model);
       }
       const effort =
         p.collaboration_mode?.settings?.reasoning_effort ??
@@ -241,6 +272,11 @@ function parseCodexTranscript(filePath: string): ParsedCodex {
     if (kind === "response_item") {
       const pt = p.type;
       out.recordTypes[pt] = (out.recordTypes[pt] || 0) + 1;
+      const picked = routed.notice(p);
+      if (picked) {
+        curModel = picked;
+        return;
+      }
       if (TOOL_CALL_TYPES.has(pt)) {
         out.toolUses++;
         const name =
@@ -440,6 +476,7 @@ function codexTimeline(filePath: string): TimelineEvent[] {
     return events;
   }
   let curModel: string | undefined;
+  const routed = routedModelTracker();
   for (const line of text.split("\n")) {
     if (!line) continue;
     let o: any;
@@ -451,8 +488,15 @@ function codexTimeline(filePath: string): TimelineEvent[] {
     const ts = o.timestamp ?? null;
     const p = o.payload ?? {};
     if (o.type === "turn_context" && p.model) {
-      curModel = p.model;
+      curModel = routed.turn(p.model);
       continue;
+    }
+    if (o.type === "response_item") {
+      const picked = routed.notice(p);
+      if (picked) {
+        curModel = picked;
+        continue;
+      }
     }
     if (o.type === "event_msg") {
       const pt = p.type;
