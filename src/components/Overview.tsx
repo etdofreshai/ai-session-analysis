@@ -110,21 +110,23 @@ export default function Overview({
     () =>
       buckets.map((d) => ({
         label: d.label,
+        // Sparse rows: only the models active in this bucket. Recharts stacks a
+        // missing key as 0, and each bar copies its row, so dense rows made
+        // the "All" chart (65 models x 177 days) use gigabytes of memory.
         ...Object.fromEntries(
-          modelNames.flatMap((m) => [
-            [m, +(
-              (d.byModel[m]?.cache ?? 0) +
-              (d.byModel[m]?.input ?? 0) +
-              (d.byModel[m]?.output ?? 0)
-            ).toFixed(4)],
-            [`${m}:cache`, +(d.byModel[m]?.cache ?? 0).toFixed(4)],
-            [`${m}:input`, +(d.byModel[m]?.input ?? 0).toFixed(4)],
-            [`${m}:output`, +(d.byModel[m]?.output ?? 0).toFixed(4)],
+          Object.entries(d.byModel).flatMap(([m, c]) => [
+            [m, +(c.cache + c.input + c.output).toFixed(4)],
+            [`${m}:cache`, +c.cache.toFixed(4)],
+            [`${m}:input`, +c.input.toFixed(4)],
+            [`${m}:output`, +c.output.toFixed(4)],
           ])
         ),
       })),
-    [buckets, modelNames]
+    [buckets]
   );
+  // Recharts keeps per-bar animation state; on big charts (e.g. "All", broken
+  // out) that costs hundreds of MB, which is too much for a phone.
+  const animate = chartData.length * modelNames.length < 2000;
   // Thin x-axis ticks when there are many buckets (e.g. up to 168 hourly bars).
   const tickInterval = chartData.length > 24 ? Math.ceil(chartData.length / 16) : 0;
   // A week is readable horizontally. Longer daily ranges need rotation so the
@@ -211,28 +213,28 @@ export default function Overview({
             />
             {modelView === "simple"
               ? modelNames.map((m) => (
-                  <Bar key={m} dataKey={m} name={m} stackId="cost" fill={colorOf[m]} />
+                  <Bar key={m} dataKey={m} name={m} stackId="cost" isAnimationActive={animate} fill={colorOf[m]} />
                 ))
               : modelNames.flatMap((m) => [
                   <Bar
                     key={`${m}:cache`}
                     dataKey={`${m}:cache`}
                     name={`${m} · Cached input`}
-                    stackId="cost"
+                    stackId="cost" isAnimationActive={animate}
                     fill={tokenShade(colorOf[m], "cache")}
                   />,
                   <Bar
                     key={`${m}:input`}
                     dataKey={`${m}:input`}
                     name={`${m} · Input`}
-                    stackId="cost"
+                    stackId="cost" isAnimationActive={animate}
                     fill={tokenShade(colorOf[m], "input")}
                   />,
                   <Bar
                     key={`${m}:output`}
                     dataKey={`${m}:output`}
                     name={`${m} · Output`}
-                    stackId="cost"
+                    stackId="cost" isAnimationActive={animate}
                     fill={tokenShade(colorOf[m], "output")}
                   />,
                 ])}
