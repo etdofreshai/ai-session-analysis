@@ -33,6 +33,7 @@ for (const [model, rate] of Object.entries({
   "claude-fable-5-1": fable51,
   "gpt-6-astra": { input: 10, output: 50, cacheRead: 1, cacheWrite5m: 12.5, cacheWrite1h: 12.5 },
   "gpt-6-sol": { input: 2, output: 10, cacheRead: 0.2, cacheWrite5m: 2.5, cacheWrite1h: 2.5 },
+  "gpt-6.1-sol": { input: 2, output: 10, cacheRead: 0.1, cacheWrite5m: 2.5, cacheWrite1h: 2.5 },
   "gpt-6-luna": { input: 0.1, output: 0.5, cacheRead: 0.01, cacheWrite5m: 0.125, cacheWrite1h: 0.125 },
 }))
   for (const prefix of ["", "cc/", "cx/", "cliproxyapi/"])

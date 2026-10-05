@@ -74,6 +74,9 @@ export const DEFAULT_PRICING: PricingTable = {
   // Keep exact model rows above the generic gpt- legacy fallback.
   "gpt-6-astra": { input: 10, output: 50, cacheRead: 1, cacheWrite5m: 12.5, cacheWrite1h: 12.5 },
   "gpt-6-sol": { input: 2, output: 10, cacheRead: 0.2, cacheWrite5m: 2.5, cacheWrite1h: 2.5 },
+  // GPT-6.1 Sol (verified 2026-10-05): same as GPT-6 Sol, cached input halved.
+  // https://developers.openai.com/api/docs/models/gpt-6.1-sol
+  "gpt-6.1-sol": { input: 2, output: 10, cacheRead: 0.1, cacheWrite5m: 2.5, cacheWrite1h: 2.5 },
   "gpt-6-luna": { input: 0.1, output: 0.5, cacheRead: 0.01, cacheWrite5m: 0.125, cacheWrite1h: 0.125 },
   "gpt-5.6-sol": { input: 5, output: 30, cacheRead: 0.5, cacheWrite5m: 0, cacheWrite1h: 0 },
   "gpt-5.6-terra": { input: 2.5, output: 15, cacheRead: 0.25, cacheWrite5m: 0, cacheWrite1h: 0 },

@@ -436,6 +436,9 @@ export const SEMANTIC_MODEL_COLORS = {
   spark: "#f4df32",    // electric spark / lemon yellow
 } as const;
 
+/** Sol 6.1: deep gold, between amber Sol and lemon Spark. */
+const SOL_6_1_COLOR = "#e8b10c";
+
 const FALLBACK_COLORS = ["#ff7eb6", "#82cfff", "#ffd166", "#06d6a0", "#b39ddb", "#ef9a9a"];
 
 export function modelColor(model: string, i = 0): string {
@@ -450,7 +453,9 @@ export function modelColor(model: string, i = 0): string {
   if (/(?:^|[-/])spark(?:$|[-/])/.test(normalized))
     return SEMANTIC_MODEL_COLORS.spark;
   if (/(?:^|[-/])sol(?:$|[-/])/.test(normalized))
-    return SEMANTIC_MODEL_COLORS.sol;
+    return /(?:^|[-/])gpt-6\.1-sol(?:$|[-/])/.test(normalized)
+      ? SOL_6_1_COLOR
+      : SEMANTIC_MODEL_COLORS.sol;
   if (/(?:^|[-/])luna(?:$|[-/])/.test(normalized))
     return SEMANTIC_MODEL_COLORS.luna;
   if (/(?:^|[-/])terra(?:$|[-/])/.test(normalized))
