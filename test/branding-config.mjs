@@ -46,6 +46,10 @@ try {
   assert.equal(modern.hosts[0].remoteProjects, "/claude-source/");
   assert.equal(modern.hosts[1].id, "new");
   assert.equal(modern.ttl, "17");
+  // A bare id keeps a retired host's archive in the scan without syncing it.
+  const retired = config({ AI_DISABLE_LOCAL: "1", AI_REMOTE_CACHE: "/a", AI_REMOTE_HOSTS: "live=u@h,old" });
+  assert.deepEqual(retired.hosts.map((h) => [h.id, h.ssh, h.remoteCodex, h.codexDir]),
+    [["live", "u@h", ".codex/sessions/", "/a/live/codex"], ["old", null, "", "/a/old/codex"]]);
   assert.equal(JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url))).name,
     "ai-session-analysis");
   assert.match(fs.readFileSync(new URL("../index.html", import.meta.url), "utf8"),

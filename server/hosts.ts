@@ -61,7 +61,8 @@ export function remoteStageRoot(): string {
 
 interface RemoteDef {
   id: string;
-  ssh: string;
+  /** null: retired host, scanned from its archive but never synced. */
+  ssh: string | null;
   remoteProjects?: string;
   remoteCodex?: string;
   remotePi?: string;
@@ -78,17 +79,17 @@ const BUILTIN_REMOTES: RemoteDef[] = [
 ];
 
 // Optional env override: comma-separated "id=user@host" pairs (unix defaults).
-// When set, it replaces the built-in remote list.
+// A bare "id" (or "id=") keeps a retired host's archived sessions without
+// syncing it. When set, it replaces the built-in remote list.
 function envRemotes(): RemoteDef[] | null {
   const spec = dashboardEnv("REMOTE_HOSTS");
   if (!spec) return null;
   const out: RemoteDef[] = [];
   for (const part of spec.split(",").map((s) => s.trim()).filter(Boolean)) {
     const eq = part.indexOf("=");
-    if (eq < 0) continue;
-    const id = part.slice(0, eq).trim();
-    const ssh = part.slice(eq + 1).trim();
-    if (id && ssh) out.push({ id, ssh });
+    const id = (eq < 0 ? part : part.slice(0, eq)).trim();
+    const ssh = eq < 0 ? "" : part.slice(eq + 1).trim();
+    if (id) out.push({ id, ssh: ssh || null });
   }
   return out;
 }
@@ -140,6 +141,7 @@ export function hosts(): HostSpec[] {
 
   for (const r of envRemotes() ?? BUILTIN_REMOTES) {
     const base = path.join(remoteStageRoot(), r.id);
+    const live = r.ssh !== null;
     list.push({
       id: r.id,
       label: r.id,
@@ -148,10 +150,10 @@ export function hosts(): HostSpec[] {
       codexDir: path.join(base, "codex"),
       piDir: path.join(base, "pi"),
       opencodeDb: path.join(base, "opencode", "opencode.db"),
-      remoteProjects: r.remoteProjects ?? ".claude/projects/",
-      remoteCodex: r.remoteCodex ?? ".codex/sessions/",
-      remotePi: r.remotePi ?? ".pi/agent/sessions/",
-      remoteOpenCode: r.remoteOpenCode ?? ".local/share/opencode/",
+      remoteProjects: live ? r.remoteProjects ?? ".claude/projects/" : "",
+      remoteCodex: live ? r.remoteCodex ?? ".codex/sessions/" : "",
+      remotePi: live ? r.remotePi ?? ".pi/agent/sessions/" : "",
+      remoteOpenCode: live ? r.remoteOpenCode ?? ".local/share/opencode/" : "",
       rsyncPath: r.rsyncPath ?? null,
     });
   }
