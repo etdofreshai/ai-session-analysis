@@ -158,6 +158,12 @@ export function hosts(): HostSpec[] {
     });
   }
 
+  // A saved swarm snapshot stays scannable after its database is dropped
+  // from AI_SWARM_DATABASES; only configured databases are re-exported.
+  for (const host of list) {
+    const snapshot = path.join(remoteStageRoot(), host.label, "swarm-usage.json");
+    if (fs.existsSync(snapshot)) host.swarmSnapshot = snapshot;
+  }
   for (const [label, database] of Object.entries(swarmDatabases)) {
     const host = list.find(h => h.label === label || h.id === label);
     if (!host) throw new Error(`Unknown swarm source host: ${label}`);

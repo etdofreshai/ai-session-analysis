@@ -174,7 +174,8 @@ export function ensureSynced(): HostSyncStatus[] {
 }
 
 export function statusList(): HostSyncStatus[] {
-  const hostStatuses = hosts().map((h) => {
+  // Retired hosts (no SSH target) keep their archive but have no live status.
+  const hostStatuses = hosts().filter((h) => h.id === "local" || h.ssh).map((h) => {
     // Hosts with no rsync source (pure scan-in-place) have no sync status; they
     // always count as ok and are listed only so they appear in the dashboard's
     // host bar.

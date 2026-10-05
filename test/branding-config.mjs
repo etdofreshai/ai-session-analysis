@@ -50,6 +50,13 @@ try {
   const retired = config({ AI_DISABLE_LOCAL: "1", AI_REMOTE_CACHE: "/a", AI_REMOTE_HOSTS: "live=u@h,old" });
   assert.deepEqual(retired.hosts.map((h) => [h.id, h.ssh, h.remoteCodex, h.codexDir]),
     [["live", "u@h", ".codex/sessions/", "/a/live/codex"], ["old", null, "", "/a/old/codex"]]);
+  // A retired swarm snapshot is still scanned without its database setting.
+  const cache = path.join(root, "cache");
+  fs.mkdirSync(path.join(cache, "old"), { recursive: true });
+  fs.writeFileSync(path.join(cache, "old", "swarm-usage.json"), "{}");
+  const kept = config({ AI_DISABLE_LOCAL: "1", AI_REMOTE_CACHE: cache, AI_REMOTE_HOSTS: "old" });
+  assert.equal(kept.hosts[0].swarmSnapshot, path.join(cache, "old", "swarm-usage.json"));
+  assert.equal(kept.hosts[0].swarmDatabase, undefined);
   assert.equal(JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url))).name,
     "ai-session-analysis");
   assert.match(fs.readFileSync(new URL("../index.html", import.meta.url), "utf8"),
