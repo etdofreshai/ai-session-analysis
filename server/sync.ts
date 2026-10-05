@@ -112,6 +112,14 @@ async function syncHost(h: HostSpec): Promise<void> {
     } catch {
       /* no codex on this host — ignore */
     }
+    // Codex moves archived threads out of sessions/ into a sibling folder.
+    // Keep them in the same archive so archiving a thread doesn't drop it.
+    try {
+      await rsyncPull(h, h.remoteCodex.replace(/sessions\/$/, "archived_sessions/"),
+        path.join(h.codexDir, "archived"));
+    } catch {
+      /* no archived threads on this host — ignore */
+    }
   }
   if (h.remotePi) {
     try {

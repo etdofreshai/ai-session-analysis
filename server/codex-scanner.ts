@@ -444,7 +444,16 @@ function scanCodexSession(file: string, host: string): SessionStats {
 // Group codex sessions into ProjectStats by their cwd (so they sit alongside
 // Claude projects in the same UI).
 export function scanCodexAll(root = codexRoot(), host = "local"): ProjectStats[] {
-  const files = listRolloutFiles(root);
+  // A thread archived after it was synced sits in both sessions/ and
+  // archived/ in the dashboard's append-only copy; keep the newest file.
+  const newest = new Map<string, { file: string; mtime: number }>();
+  for (const file of listRolloutFiles(root)) {
+    const id = idFromFile(file);
+    const mtime = fs.statSync(file).mtimeMs;
+    const prev = newest.get(id);
+    if (!prev || mtime > prev.mtime) newest.set(id, { file, mtime });
+  }
+  const files = [...newest.values()].map((v) => v.file);
   const byProject = new Map<string, SessionStats[]>();
   for (const f of files) {
     const s = scanCodexSession(f, host);
@@ -539,7 +548,9 @@ export function codexSessionDetail(
   host = "local"
 ): SessionDetail | null {
   const files = listRolloutFiles(root);
-  const file = files.find((f) => idFromFile(f) === sessionId);
+  const file = files
+    .filter((f) => idFromFile(f) === sessionId)
+    .sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs)[0];
   if (!file) return null;
   const session = scanCodexSession(file, host);
   const timeline = codexTimeline(file);
