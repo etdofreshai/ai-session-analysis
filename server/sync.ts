@@ -99,8 +99,11 @@ async function syncHost(h: HostSpec): Promise<void> {
     try {
       await rsyncPull(h, h.remoteProjects, h.projectsDir);
     } catch (e: any) {
-      ok = false;
       error = String(e?.stderr || e?.message || e).trim().slice(0, 500);
+      // A host without Claude Code (e.g. Codex-only) is healthy; only a
+      // failed connection or transfer marks it down.
+      ok = /\(l\)stat: No such file or directory|change_dir .* failed: No such file/.test(error);
+      if (ok) error = null;
     }
   }
   if (h.remoteCodex) {
