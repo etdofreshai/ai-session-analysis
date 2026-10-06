@@ -84,6 +84,8 @@ interface ParsedCodex {
   recordTypes: Record<string, number>;
   hourlyUsage: HourlyUsage;
   dailyUsage: DailyUsage;
+  cloudUsageCoverage?: SessionStats["cloudUsageCoverage"];
+  cloudPlanUsage?: SessionStats["cloudPlanUsage"];
 }
 
 const TOOL_CALL_TYPES = new Set([
@@ -222,6 +224,11 @@ export function parseCodexTranscript(filePath: string): ParsedCodex {
       out.cwd = p.cwd ?? out.cwd;
       out.version = p.cli_version ?? out.version;
       out.source = sourceLabel(p.source) ?? sourceLabel(p.originator) ?? out.source;
+      if (typeof p.cloud_title === "string" && p.cloud_title) out.title = p.cloud_title;
+      if (p.source === "codex-cloud") {
+        out.cloudUsageCoverage = p.cloud_usage_coverage;
+        out.cloudPlanUsage = p.cloud_plan_usage;
+      }
       return;
     }
 
@@ -436,6 +443,8 @@ function scanCodexSession(file: string, host: string): SessionStats {
       recordTypes: p.recordTypes,
       hourlyUsage: p.hourlyUsage,
       dailyUsage: p.dailyUsage,
+      cloudUsageCoverage: p.cloudUsageCoverage,
+      cloudPlanUsage: p.cloudPlanUsage,
     };
     return stats;
   });

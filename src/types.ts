@@ -44,6 +44,13 @@ export interface SubagentStats {
   dailyUsage: DailyUsage;
 }
 
+export interface CloudUsageCoverage {
+  firstObservedAt: string | null;
+  observedCalls: number;
+  unbucketedTokens?: number;
+  total?: { totalTokens: number };
+}
+
 export interface SessionCounts {
   records: number;
   userPrompts: number;
@@ -86,6 +93,8 @@ export interface SessionStats {
   recordTypes: Record<string, number>;
   hourlyUsage: HourlyUsage;
   dailyUsage: DailyUsage;
+  cloudUsageCoverage?: CloudUsageCoverage;
+  cloudPlanUsage?: { weeklyLimitPercent: number | null; dataStatus: string; dataAsOf: string | null };
 }
 
 export interface ProjectStats {

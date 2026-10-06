@@ -57,6 +57,10 @@ try {
   const kept = config({ AI_DISABLE_LOCAL: "1", AI_REMOTE_CACHE: cache, AI_REMOTE_HOSTS: "old" });
   assert.equal(kept.hosts[0].swarmSnapshot, path.join(cache, "old", "swarm-usage.json"));
   assert.equal(kept.hosts[0].swarmDatabase, undefined);
+  const cloud = config({ AI_DISABLE_LOCAL: "1", AI_REMOTE_HOSTS: "old", AI_CLOUD_CODEX_DIR: "/cloud-export/codex" });
+  assert.equal(cloud.hosts.at(-1).id, "codex-cloud");
+  assert.equal(cloud.hosts.at(-1).codexDir, "/cloud-export/codex");
+  assert.equal(cloud.hosts.at(-1).remoteCodex, "");
   assert.equal(JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url))).name,
     "ai-session-analysis");
   assert.match(fs.readFileSync(new URL("../index.html", import.meta.url), "utf8"),

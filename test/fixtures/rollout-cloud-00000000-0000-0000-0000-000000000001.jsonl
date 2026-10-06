@@ -1,0 +1,6 @@
+{"timestamp":"2026-10-01T12:00:00Z","type":"session_meta","payload":{"id":"00000000-0000-0000-0000-000000000001","cwd":"/cloud/task","source":"codex-cloud","cloud_title":"Cloud history","cloud_usage_coverage":{"firstObservedAt":"2026-10-06T12:00:00Z","observedCalls":1,"unbucketedTokens":10890,"total":{"totalTokens":11000}},"cloud_plan_usage":{"weeklyLimitPercent":14.97,"dataStatus":"partial","dataAsOf":"2026-10-06T11:00:00Z"}}}
+{"timestamp":"2026-10-01T12:00:00Z","type":"event_msg","payload":{"type":"user_message","message":"Question"}}
+{"timestamp":"2026-10-01T12:00:01Z","type":"event_msg","payload":{"type":"agent_message","message":"Answer"}}
+{"timestamp":"2026-10-01T12:00:01Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Answer"}]}}
+{"timestamp":"2026-10-06T12:00:00Z","type":"turn_context","payload":{"model":"gpt-6.1-sol"}}
+{"timestamp":"2026-10-06T12:00:00Z","type":"event_msg","payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":100,"cached_input_tokens":80,"output_tokens":10}}}}

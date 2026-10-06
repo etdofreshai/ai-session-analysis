@@ -158,6 +158,15 @@ export function hosts(): HostSpec[] {
     });
   }
 
+  const cloudDir = process.env.AI_CLOUD_CODEX_DIR;
+  if (cloudDir) list.push({
+    id: "codex-cloud", label: "codex-cloud", ssh: null,
+    projectsDir: path.join(cloudDir, "no-claude"),
+    codexDir: cloudDir, piDir: path.join(cloudDir, "no-pi"),
+    opencodeDb: path.join(cloudDir, "no-opencode.db"),
+    remoteProjects: "", remoteCodex: "", remotePi: "", remoteOpenCode: "", rsyncPath: null,
+  });
+
   // A saved swarm snapshot stays scannable after its database is dropped
   // from AI_SWARM_DATABASES; only configured databases are re-exported.
   for (const host of list) {

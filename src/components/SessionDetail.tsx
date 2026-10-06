@@ -149,6 +149,23 @@ export default function SessionDetailView({
                 </>}
               </div>
 
+              {detail.session.cloudUsageCoverage && (
+                <p className="sub">
+                  Cloud token costs cover observed calls
+                  {detail.session.cloudUsageCoverage.firstObservedAt
+                    ? ` since ${fmtTimeCT(detail.session.cloudUsageCoverage.firstObservedAt)}`
+                    : " after collection starts"}.
+                  {detail.session.cloudUsageCoverage.total && (
+                    <> Latest cumulative snapshot: {fmtTokens(detail.session.cloudUsageCoverage.total.totalTokens)} tokens.
+                      Earlier tokens lack dated model attribution.</>
+                  )}
+                  {detail.session.cloudPlanUsage?.weeklyLimitPercent != null && (
+                    <> Reported weekly allowance used: {detail.session.cloudPlanUsage.weeklyLimitPercent.toFixed(2)}%
+                      {" "}({detail.session.cloudPlanUsage.dataStatus} data).</>
+                  )}
+                </p>
+              )}
+
               <h3>
                 Model usage
                 {detail.session.effortModes.length > 0 && (
