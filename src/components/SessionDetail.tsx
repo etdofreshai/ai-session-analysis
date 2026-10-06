@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { SessionDetail, TimelineEvent } from "../types";
 import { fetchSessionDetail } from "../api";
 import type { PricingTable } from "../pricing";
-import { fmtDuration, fmtTimeCT, fmtTokens, fmtUsd, modelsCost, totalTokens, usageCost } from "../pricing";
+import { fmtDateTimeCT, fmtDuration, fmtTimeCT, fmtTokens, fmtUsd, modelsCost, totalTokens, usageCost } from "../pricing";
 
 // ---------- lightweight markdown renderer ----------
 
@@ -153,7 +153,7 @@ export default function SessionDetailView({
                 <p className="sub">
                   Cloud token costs cover observed calls
                   {detail.session.cloudUsageCoverage.firstObservedAt
-                    ? ` since ${fmtTimeCT(detail.session.cloudUsageCoverage.firstObservedAt)}`
+                    ? ` since ${fmtDateTimeCT(detail.session.cloudUsageCoverage.firstObservedAt)}`
                     : " after collection starts"}.
                   {detail.session.cloudUsageCoverage.total && (
                     <> Latest cumulative snapshot: {fmtTokens(detail.session.cloudUsageCoverage.total.totalTokens)} tokens.
@@ -161,7 +161,8 @@ export default function SessionDetailView({
                   )}
                   {detail.session.cloudPlanUsage?.weeklyLimitPercent != null && (
                     <> Reported weekly allowance used: {detail.session.cloudPlanUsage.weeklyLimitPercent.toFixed(2)}%
-                      {" "}({detail.session.cloudPlanUsage.dataStatus} data).</>
+                      {" "}({detail.session.cloudPlanUsage.dataStatus} data
+                      {detail.session.cloudPlanUsage.dataAsOf && ` as of ${fmtDateTimeCT(detail.session.cloudPlanUsage.dataAsOf)}`}).</>
                   )}
                 </p>
               )}
