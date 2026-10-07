@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { ctDay } from "./ct-day";
+import { CLOUD_HOSTS, cloudMachine } from "./hosts";
 import type {
   DailyUsage,
   HourlyUsage,
@@ -466,6 +467,8 @@ export function scanCodexAll(root = codexRoot(), host = "local"): ProjectStats[]
   const byProject = new Map<string, SessionStats[]>();
   for (const f of files) {
     const s = scanCodexSession(f, host);
+    // Cloud exports share one folder; each cloud host keeps its own threads.
+    if ((CLOUD_HOSTS as readonly string[]).includes(host) && cloudMachine(s.cwd) !== host) continue;
     const arr = byProject.get(s.project) ?? [];
     arr.push(s);
     byProject.set(s.project, arr);
@@ -562,6 +565,7 @@ export function codexSessionDetail(
     .sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs)[0];
   if (!file) return null;
   const session = scanCodexSession(file, host);
+  if ((CLOUD_HOSTS as readonly string[]).includes(host) && cloudMachine(session.cwd) !== host) return null;
   const timeline = codexTimeline(file);
   timeline.sort((a, b) => (a.ts ?? "").localeCompare(b.ts ?? ""));
   return { session, timeline };

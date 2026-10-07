@@ -94,6 +94,17 @@ function envRemotes(): RemoteDef[] | null {
   return out;
 }
 
+export const CLOUD_HOSTS = ["cloud", "dot"] as const;
+
+/**
+ * Which cloud machine a cloud-exported thread belongs to. Dot and its
+ * Heartbeat Dreamer threads run in Codex's hosted /workspace/scratch
+ * sandboxes; other cloud tasks run against a connected workspace.
+ */
+export function cloudMachine(cwd: string | null): (typeof CLOUD_HOSTS)[number] {
+  return cwd?.startsWith("/workspace/scratch/") ? "dot" : "cloud";
+}
+
 let cached: HostSpec[] | null = null;
 
 export function hosts(): HostSpec[] {
@@ -158,9 +169,11 @@ export function hosts(): HostSpec[] {
     });
   }
 
+  // Codex cloud exports appear as two machines: "dot" for Dot's hosted
+  // threads and "cloud" for other cloud tasks (see cloudMachine).
   const cloudDir = process.env.AI_CLOUD_CODEX_DIR;
-  if (cloudDir) list.push({
-    id: "codex-cloud", label: "codex-cloud", ssh: null,
+  if (cloudDir) for (const id of CLOUD_HOSTS) list.push({
+    id, label: id, ssh: null,
     projectsDir: path.join(cloudDir, "no-claude"),
     codexDir: cloudDir, piDir: path.join(cloudDir, "no-pi"),
     opencodeDb: path.join(cloudDir, "no-opencode.db"),
