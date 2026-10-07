@@ -31,6 +31,8 @@ try {
   fs.writeFileSync(path.join(split, "rollout-cloud-00000000-0000-0000-0000-000000000002.jsonl"), dot);
   const ids = (host) => scanCodexAll(split, host).flatMap((p) => p.sessions.map((s) => s.id.slice(-1)));
   assert.deepEqual([ids("cloud"), ids("dot")], [["1"], ["2"]]);
+  // Scanning the same file for both hosts must not reuse the other host's copy.
+  assert.deepEqual(scanCodexAll(split, "dot").flatMap((p) => p.sessions.map((s) => s.host)), ["dot"]);
 } finally {
   fs.rmSync(split, { recursive: true });
 }

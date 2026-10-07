@@ -325,18 +325,20 @@ interface CacheEntry {
 }
 const cache = new Map<string, CacheEntry>();
 
-function cached<T>(filePath: string, compute: () => T): T {
+// Keyed by host too: the cloud and dot hosts scan the same export folder.
+function cached<T>(filePath: string, compute: () => T, host = ""): T {
   let st: fs.Stats;
   try {
     st = fs.statSync(filePath);
   } catch {
     return compute();
   }
-  const hit = cache.get(filePath);
+  const key = `${host}\0${filePath}`;
+  const hit = cache.get(key);
   if (hit && hit.mtimeMs === st.mtimeMs && hit.size === st.size)
     return hit.value as T;
   const value = compute();
-  cache.set(filePath, { mtimeMs: st.mtimeMs, size: st.size, value });
+  cache.set(key, { mtimeMs: st.mtimeMs, size: st.size, value });
   return value;
 }
 
@@ -448,7 +450,7 @@ function scanCodexSession(file: string, host: string): SessionStats {
       cloudPlanUsage: p.cloudPlanUsage,
     };
     return stats;
-  });
+  }, host);
 }
 
 // Group codex sessions into ProjectStats by their cwd (so they sit alongside
